@@ -1,0 +1,90 @@
+{
+    "version": "eosio::abi/1.0",
+    "types": [{
+        "new_type_name": "account_name",
+        "type": "name"
+    }],
+    "structs": [
+        {
+        "name": "comments",
+        "base": "",
+        "fields": [
+            {"name": "to", "type": "account_name"},
+            {"name": "deposit", "type": "int64"},
+            {"name": "memo", "type": "string"},
+            {"name": "weight", "type": "int64"},
+            {"name": "lastupdate", "type": "int64"}
+            ]
+        },
+        {
+        "name": "gcomments",
+        "base": "",
+        "fields": [
+            {"name": "account", "type": "account_name"},
+            {"name": "total", "type": "int64"},
+            {"name": "totaldown", "type": "int64"},
+            {"name": "lastupdate", "type": "int64"}
+            ]
+        },
+        {
+        "name": "comment",
+        "base": "",
+        "fields": [
+            {"name": "from", "type": "account_name"},
+            {"name": "to", "type": "account_name"},
+            {"name": "memo", "type": "string"}
+            ]
+        },
+        {
+        "name": "withdraw",
+        "base": "",
+        "fields": [
+            {"name": "from", "type": "account_name"},
+            {"name": "to", "type": "account_name"}
+            ]
+        },
+        {
+        "name": "dismiss",
+        "base": "",
+        "fields": [
+            {"name": "account", "type": "account_name"}
+            ]
+        },
+        {
+          "name": "timelocks",
+          "base": "",
+          "fields": [
+            {"name":"timeout", "type":"int64"},
+            {"name":"quantity", "type":"int64"},
+            {"name":"from", "type":"int64"}
+          ]
+        }
+        ],
+    "actions": [
+        {"name": "comment","type": "comment", "ricardian_contract": ""},
+        {"name": "withdraw","type": "withdraw", "ricardian_contract": ""},
+        {"name": "clear","type": "withdraw", "ricardian_contract": ""},
+        {"name": "dismiss","type": "dismiss", "ricardian_contract": ""}
+        ],
+    "tables": [{
+        "name": "commentss",
+        "type": "comments",
+        "index_type": "i64",
+        "key_names" : ["to"],
+        "key_types" : ["i64"]
+    },{
+        "name": "gcommentss",
+        "type": "gcomments",
+        "index_type": "i64",
+        "key_names" : ["account"],
+        "key_types" : ["i64"]
+    },{
+      "name": "timelockss",
+      "type": "timelocks",
+      "index_type": "i64",
+      "key_names" : ["timeout"],
+      "key_types" : ["uint64"]
+    }
+    ],
+    "clauses": []
+}

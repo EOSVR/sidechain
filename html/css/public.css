@@ -1,0 +1,59 @@
+@charset "utf-8";
+/* CSS Document */
+html, body, div, span, iframe,input,select, map, font, img, a img, samp, strong, hr, h1, h2, h3, h4, h5, h6, b, p, blockquote, a, address, code, dl, dt, dd, ol, ul, li, form, label, table, tr, td, th {
+	padding: 0;
+	margin: 0;
+	border: 0;
+	box-sizing: border-box;
+	font-family: 'Microsoft YaHei', Arial, Helvetica, sans-serif;
+}
+ol, ul {
+	list-style: none;
+}
+h1, h2, h3, h4, h5, h6 {
+	line-height:1;
+}
+a{
+	text-decoration: none;
+	blr:expression(this.onFocus=this.blur());
+}
+i, em {
+    font-style: normal;
+}
+
+a:focus {
+	outline: none;
+}
+a.hidefocus {
+	outline: none
+}
+
+input[type=text],input[type=submit], input[type=button] {
+	-webkit-appearance: none; /*去除iPhone input默认样式}*/
+}
+input{
+	outline: none;
+	background: none;
+}
+img {
+	width: 100%;
+	height: 100%;
+	display: block;
+}
+
+.fl {
+	float: left;
+}
+.fr {
+	float: right;
+}
+.clear:after {
+	display: block;
+	content: "";
+	clear: both;
+	height: 0;
+	overflow: hidden;
+}
+.clear{
+	zoom: 1;
+}

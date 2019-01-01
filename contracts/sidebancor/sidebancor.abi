@@ -1,0 +1,38 @@
+{
+    "version": "eosio::abi/1.0",
+    "types": [{
+        "new_type_name": "account_name",
+        "type": "name"
+    }],
+    "structs": [
+        {
+          "name": "deposits",
+          "base": "",
+          "fields": [
+              {"name": "account", "type": "account_name"},
+              {"name": "deposit", "type": "int64"}
+          ]
+        }
+        ],
+    "actions": [
+
+        ],
+    "tables": [
+    {
+        "name": "depositss1",
+        "type": "deposits",
+        "index_type": "i64",
+        "key_names" : ["account"],
+        "key_types" : ["i64"]
+    },
+    {
+        "name": "depositss2",
+        "type": "deposits",
+        "index_type": "i64",
+        "key_names" : ["account"],
+        "key_types" : ["i64"]
+    }
+
+    ],
+    "clauses": []
+}

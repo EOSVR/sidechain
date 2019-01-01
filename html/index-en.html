@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="keywords" content="">
+		<meta name="description" content="">
+		<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<title></title>
+		<link rel="stylesheet" type="text/css" href="css/public.css" />
+		<link rel="stylesheet" type="text/css" href="css/style.css" />
+        <script type="text/javascript" language="javascript" src="js/jquery-3.3.1.min.js"></script>
+		<script src="js/rem.js" type="text/javascript" charset="utf-8"></script>
+        <script src="js/eos1.js" type="text/javascript" charset="utf-8"></script>
+
+	</head>
+	<body onkeydown='onKeyDown();'>
+		<div class="headerk">
+			<div class="header">
+				<h4>EOS-Chains Accounts Query</h4>
+				<div class="header_right">
+					<ul>
+						<li><a href="https://github.com/EOSVR/EOSVR/blob/master/id.md">Rules</a></li>
+						<li><a href="index.html">中文</a></li>
+					</ul>
+				</div>
+				<div class="sousu">
+						<p><img src="images/fdj.png"></p>
+
+						<input type="text" name="" id="input1" value="" placeholder="Please input EOS Chain Account Name" />
+						<input type="submit" name="" id="btn" value="Search" onclick="clickSearch()" />
+				</div>
+			</div>
+		</div>
+		<div class="main">
+			<div class="main1">
+				<div class="main1_left">
+					<p id="description" class="description" >
+
+					</p>
+					<ul>
+						<li><a href="#" onclick="click1()">Note</a></li>
+						<!--li><a href="#" onclick="click2()">Note</a></li-->
+					</ul>
+				</div>
+				<div class="main1_right">
+					<div class="tx">
+						<!--img id="portrait" src="images/tx.jpg"-->
+						<img id="portrait" src="" />
+					</div>
+					<br/>
+					<div class="main1_right2">
+						<p id="username" onclick="clickname()">...</p>
+						<p>
+							<span>
+								<img src="images/jb.png">
+							</span>
+							<p id="evd" onclick="clicktoken()">...</p>
+						</p>
+						<h4><span id="limit_status" onclick="clicklimit()">...</span></h4>
+					</div>
+				</div>
+				<div class="clear"></div>
+			</div>
+		</div>
+		<div class="main2k">
+			<div class="main2">
+				<p id="more"></p>
+			</div>
+		</div>
+
+	</body>
+	<script type="text/javascript" language="javascript" >
+      	var eosserver = "http://mainnet.eoscalgary.io";
+
+		var b=document.getElementById('input1');
+		b.focus();
+        document.addEventListener('touchstart', function() {
+          b.focus();
+        });
+
+		var name1 = document.getElementById('username');
+		var limit_status = document.getElementById('limit_status');
+		var desc = document.getElementById('description');
+		var evd = document.getElementById('evd');
+        var portrait = document.getElementById('portrait');
+        var more = document.getElementById('more');
+
+        var user_limit_strs = ['None', 'Short-Term', 'Mid-Term', 'Long-Term', 'Very long-Term'];
+
+		var click1=function() {
+            if (current_is_linker) {
+              more.innerHTML = 'This is a linker of a EOS side-chain, commands:<br />'
+                + 'Transfer to a sidechain: <br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
+                + current_id + '","quantity":"0.1000 EVD","memo":"#HASH#2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824,86400,newaccount11"}\' -p account1'
+                + '<br/><br/>Please calculate the Hash by yourself, the example is the hash of "hello", and it will confirm automatically without safety proof.'
+                + '<br/>86400 represent one day to confirm, newaccount11 is the account name in side-chain. If it does not exist, will create one with the public key of sender. Creation fee is needed.'
+                + '<br/>Example: 0.01 EVD for account creation fee, and 0.01 EVD for transfer fee.'
+                + '<br/><br/>After confirm a transfer created in side-chain, can confirm it in side-chain by:'
+                + '<br />cleos push action eoslocktoken confirm  \'{"from":"eoslinker111", "to":"newaccount11","key":"hello", "executer":"newaccount11"}\' -p newaccount11'
+              ;
+            } else {
+              more.innerHTML = 'Commands:<br />'
+                + 'Transfer:  <br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
+                + current_id + '","quantity":"1.0000 EVD","memo":""}\' -p account1' + '<br/>'
+                + 'Lock:  <br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
+                + current_id + '","quantity":"1.0000 EVD","memo":"#LOCK#"}\' -p account1' + '<br/><br/>'
+                + 'Change description: <br />cleos push action eosvrcomment comment \'{"from":"'
+                + current_id + '", "to":"' + current_id + '", "memo":"New description."}\' -p ' + current_id + '<br/>'
+                + 'Change portrait: <br />cleos push action evrportraits comment \'{"from":"'
+                + current_id + '", "to":"' + current_id + '", "memo":"iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO0TXL0Y4OHwAAAABJRU5ErkJggg=="}\' -p ' + current_id + '<br/>'
+                + 'In memo, there is base64 string of a jpg or png image. If image is big, it will take some RAM';
+            }
+		};
+
+		var click2=function() {
+			more.innerHTML='More info: <a href="https://github.com/EOSVR/EOSVR/blob/master/sidechain.md" >https://github.com/EOSVR/EOSVR/blob/master/sidechain.md</a>';
+		};
+
+		var clickSearch=function() {
+		  if (b.value) {
+		    more.innerText = "";
+            changeId(b.value, name1, limit_status, desc, evd, portrait, user_limit_strs, eosserver);
+          } else {
+		    more.innerHTML = "Can input \"EOS AccountName\" or \"AccountName@Linker\" to view, example: "
+              + "<br/>eoslinker111"
+              + "<br/>eoslocktoken"
+              + "<br/>eosio@eoslinker111"
+              + "<br/>eosvrcomment@eoslinker111";
+          }
+		};
+
+		var clicktoken = function () {
+		    more.innerText = 'Have : ' + get_token2(current_evd_token)
+			  + '\n' + 'Locking : ' + get_token2(current_locked_token);
+        };
+
+		var clicklimit = function () {
+			more.innerHTML='User can set transfer limitation. More restricted limitation, more weight in vote (1-100)<br />'
+			    + 'Current transfer limitation per month：' + ((current_limit > 0 && current_limit <=50) ? (current_limit + '%') : 'None') + '<br />'
+                + 'Vote weight: ' + getLimitMulti() + '<br />'
+				+ 'Example to set limitation: <br/>'
+				+ 'cleos push action eoslocktoken transfer \'{"from":"'
+			  		+ current_id + '", "to":"' + current_id + '","quantity":"0.0000 EVD","memo":"#LIMIT#10"}\' -p ' + current_id
+				+ '<br/>This will limit the transfer to 10% per month. <br/>Note: Can only set to smaller number, please do it carefully';
+		};
+
+		var clickname = function () {
+		  	var h = 'Current Account: ' + current_id;
+
+		  	if (current_linker) {
+		  	  h += '<br/>Linker in side-chain is: ' + current_linker;
+            } else {
+		  	  h += '<br/>In main chain.'
+            }
+
+			more.innerHTML= h;
+		};
+
+        var onKeyDown = function() {
+          if (window.event.keyCode === 13) {
+            clickSearch();
+          }
+        }
+
+        var ind = window.location.href.indexOf('id=');
+        var id = ind > 0 ? window.location.href.substring(ind + 3).split('#')[0] : 'eoslinker111';
+
+        changeId(id, name1, limit_status, desc, evd, portrait, user_limit_strs, eosserver);
+
+
+	</script>
+</html>

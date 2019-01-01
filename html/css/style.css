@@ -1,0 +1,64 @@
+body{background: #f5f5f5;}
+.headerk{width: 100%;height: 150px;background: #159fff;position: relative;}
+.header{width: 1200px;height: 150px;margin: 0 auto;}
+.header h4{font-size: 32px;color: #FFFFFF;margin-top: 17px;float: left;}
+.header_right{float: right;margin-top: 17px;}
+.header_right li{float: left;font-size: 20px;margin-left: 86px;}
+.header_right li a{color: #FFFFFF;display: block;}
+.sousu{width: 1170px;height: 70px;background: #FFFFFF;border-radius: 10px;position: absolute;bottom:-40px;left: 50%;margin-left: -585px; box-shadow: 0px 2px 27px 0px rgba(0, 131, 233, 0.15);}
+.sousu p{width: 24px;height: 24px;float: left;margin-left: 30px;margin-top: 22px;margin-right: 11px;}
+.sousu input{float: left;}
+#input1{width: 881px;height: 53px;margin-top: 8px;line-height: 53px; font-size: x-large}
+#btn{width: 123px;height: 49px;background: #1ea8ff;border-radius: 7px;float: right;margin-top: 10px;margin-right: 25px;color: #ffffff;font-size: 20px;}
+.main{width: 100%;min-height: 277px;background: #FFFFFF;padding-bottom: 30px;}
+.main1{width: 1170px;margin: 0 auto;min-height: 277px}
+.main1_left{width: 672px;float: left;margin-top: 73px;float: left;line-height: 30px; }
+.main1_left p{font-size: 20px;color: #999999;}
+.main1_left .description{ min-height: 300px;}
+.main1_left ul{margin-top: 30px;}
+.main1_left li{width: 124px;height: 41px;background: #1ea8ff;border-radius: 50px;float: left;margin-right: 38px;font-size: 18px;line-height: 41px;text-align: center;}
+.main1_left li a{display: block;color: #FFFFFF;}
+.tx{width: 76px;height: 76px;float: left;margin-right: 14px;}
+.main1_right{float: right;margin-top: 73px;width: 262px;height: 76px;}
+.main1_right2{float: left;}
+.main1_right2 h4{font-size: 20px;margin-bottom: 15px;font-weight: initial;float: left;}
+.main1_right2 h4 span{display: block;float: left; height: 27px;text-align: left;line-height: 27px; border: 1px solid #eeeeee;border-radius: 50px; font-size: 18px;color: #999999;margin-left: 13px;}
+.main1_right2 p{font-size: 24px; width: 180px;}
+.main1_right2 p span{display: block;width: 20px;height: 22px;float: left;margin-top: 10px;margin-right: 8px;}
+.main2k{width: 1200px;min-height: 600px;background: #FFFFFF;margin: 0 auto;margin-top: 25px;font-size: 16px;color: #999999;margin-bottom: 30px;}
+.main2{padding: 30px;}
+.main2 p{line-height: 30px;margin-bottom: 40px;}
+
+@media (max-width: 750px)  {
+	.headerk{width: 100%;height: 1.5rem;background: #159fff;position: relative;}
+	.header{width: 7.07rem;height: 1.5rem;margin: 0 auto;}
+	.header h4{font-size: 0.32rem;color: #FFFFFF;margin-top: 0.17rem;float: left;}
+	.header_right{float: right;margin-top: 0.17rem;}
+	.header_right li{float: left;font-size: 0.2rem;margin-left: 0.86rem;}
+	.header_right li a{color: #FFFFFF;display: block;}
+	.sousu{width: 7.07rem;height: 0.7rem;background: #FFFFFF;border-radius: 10px;position: absolute;bottom:-0.4rem;left: 50%;margin-left: -3.53rem; box-shadow: 0px 2px 0.27rem 0px rgba(0, 131, 233, 0.15);}
+	.sousu p{width: 0.24rem;height: 0.24rem;float: left;margin-left: 0.3rem;margin-top: 0.25rem;margin-right: 0.11rem;}
+	.sousu input{float: left;}
+	#input1{width: 4.5rem;height: 0.7rem;margin-top:0;line-height: 0.7rem; font-size: large}
+	#btn{width: 1.23rem;height: 0.49rem;background: #1ea8ff;border-radius: 7px;float: right;margin-top: 0.1rem;margin-right: 0.25rem;color: #ffffff;font-size: 0.2rem;}
+	.main{width: 100%;min-height: 4.24rem;background: #FFFFFF;padding-bottom: 0.3rem;}
+	.main1{width: 7.15rem;margin: 0 auto;min-height: 4.24rem;}
+	.main1_left{width: 2.8rem;float: left;margin-top: 0.73rem;line-height: 0.4rem; }
+	.main1_left p{margin-left: 0.3rem; font-size: 0.2rem; color: #999999;}
+	.main1_left .description{ min-height: 3rem;}
+	.main1_left ul{margin-top: 0.3rem;}
+	.main1_left li{width: 1.24rem;height: 0.41rem;background: #1ea8ff;border-radius: 0.5rem;float: left;margin-right: 0.3rem;font-size: 0.18rem;line-height: 0.41rem;text-align: center;}
+	.main1_left li:last-child{margin-right: 0;}
+	.main1_left li a{display: block;color: #FFFFFF;}
+	.tx{width: 0.76rem;height: 0.76rem;float: left;margin-right: 0.14rem;}
+	.main1_right{float: right;margin-top: 0.73rem;width: 2.62rem;height: 0.76rem;}
+	.main1_right2{float: left;}
+	.main1_right2 h4{font-size: 0.20rem;margin-bottom: 0.15rem;font-weight: initial;float: left;}
+	.main1_right2 h4 span{display: block;float: left; height: 0.35rem;text-align: left;line-height: 0.27rem; border: 1px solid #eeeeee;border-radius: 0.5rem; font-size: 0.18rem;color: #999999;margin-left: 0.13rem;}
+	.main1_right2 p{font-size: 0.24rem; width: 1.8rem;}
+	.main1_right2 p span{display: block;width: 0.2rem;height: 0.22rem;float: left;margin-top: 0.1rem;margin-right: 8px;}
+	.main2k{width: 7.15rem;min-height: 7rem;background: #FFFFFF;margin: 0 auto;margin-top: 0.25rem;font-size: 0.16rem;color: #999999;margin-bottom: 0.3rem;}
+	.main2{padding: 0.3rem;}
+	.main2 p{line-height: 0.3rem;margin-bottom: 0.4rem;}
+
+}

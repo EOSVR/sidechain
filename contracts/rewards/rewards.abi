@@ -1,0 +1,99 @@
+{
+    "version": "eosio::abi/1.0",
+    "types": [{
+        "new_type_name": "account_name",
+        "type": "name"
+    }],
+    "structs": [
+        {
+          "name": "rewards",
+          "base": "",
+          "fields": [
+              {"name": "deposit", "type": "int64"},
+
+              {"name": "maxtoken", "type": "int64"},
+              {"name": "ranker", "type": "account_name"},
+              {"name": "receiver_number", "type": "int64"},
+              {"name": "interval", "type": "int64"},
+              {"name": "rewardtype", "type": "int64"},
+
+              {"name": "lastreward", "type": "int64"},
+              {"name": "owner", "type": "account_name"},
+              {"name": "rewardlimit", "type": "int64"}
+          ]
+        },
+        {
+          "name": "deposits",
+          "base": "",
+          "fields": [
+              {"name": "to", "type": "account_name"},
+              {"name": "deposit", "type": "int64"}
+          ]
+        },
+        {
+          "name": "reward",
+          "base": "",
+          "fields": [
+              {"name": "to", "type": "account_name"}
+          ]
+        },
+        {
+          "name": "applies",
+          "base": "",
+          "fields": [
+              {"name": "account", "type": "account_name"},
+              {"name": "deposit", "type": "int64"},
+              {"name": "ranker", "type": "account_name"},
+              {"name": "reward_owner", "type": "account_name"},
+              {"name": "last_support", "type": "int64"}
+          ]
+        },
+        {
+          "name": "gcomments",
+          "base": "",
+          "fields": [
+              {"name": "account", "type": "account_name"},
+              {"name": "total", "type": "int64"},
+              {"name": "totaldown", "type": "int64"},
+              {"name": "commenters", "type": "string"}
+              ]
+          }
+        ],
+    "actions": [
+          {"name": "reward","type": "reward",
+            "ricardian_contract": ""},
+          {"name": "withdraw","type": "reward",
+            "ricardian_contract": ""}
+        ],
+    "tables": [
+    {
+        "name": "rewardss",
+        "type": "rewards",
+        "index_type": "i64",
+        "key_names" : ["owner"],
+        "key_types" : ["i64"]
+    },
+    {
+        "name": "depositss",
+        "type": "deposits",
+        "index_type": "i64",
+        "key_names" : ["to"],
+        "key_types" : ["i64"]
+    },
+    {
+        "name": "gcommentss",
+        "type": "gcomments",
+        "index_type": "i64",
+        "key_names" : ["account"],
+        "key_types" : ["i64"]
+    },
+    {
+        "name": "appliess",
+        "type": "applies",
+        "index_type": "i64",
+        "key_names" : ["account"],
+        "key_types" : ["i64"]
+    }
+    ],
+    "clauses": []
+}

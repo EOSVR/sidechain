@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="keywords" content="">
+		<meta name="description" content="">
+		<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<title></title>
+		<link rel="stylesheet" type="text/css" href="css/public.css" />
+		<link rel="stylesheet" type="text/css" href="css/style.css" />
+        <script type="text/javascript" language="javascript" src="js/jquery-3.3.1.min.js"></script>
+		<script src="js/rem.js" type="text/javascript" charset="utf-8"></script>
+        <script src="js/eos1.js" type="text/javascript" charset="utf-8"></script>
+
+	</head>
+	<body onkeydown='onKeyDown();'>
+		<div class="headerk">
+			<div class="header">
+				<h4>EOS链用户查询</h4>
+				<div class="header_right">
+					<ul>
+						<li><a href="https://github.com/EOSVR/EOSVR/blob/master/id-cn.md">规则</a></li>
+						<li><a href="index-en.html">English</a></li>
+					</ul>
+				</div>
+				<div class="sousu">
+						<p><img src="images/fdj.png"></p>
+
+						<input type="text" name="" id="input1" value="" placeholder="请输入EOS链用户名" />
+						<input type="submit" name="" id="btn" value="搜索" onclick="clickSearch()" />
+				</div>
+			</div>
+		</div>
+		<div class="main">
+			<div class="main1">
+				<div class="main1_left">
+					<p id="description" class="description" >
+
+					</p>
+					<ul>
+						<li><a href="#" onclick="click1()">说明</a></li>
+						<!--li><a href="#" onclick="click2()">说明</a></li-->
+					</ul>
+				</div>
+				<div class="main1_right">
+					<div class="tx">
+						<!--img id="portrait" src="images/tx.jpg"-->
+						<img id="portrait" src="" />
+					</div>
+					<br/>
+					<div class="main1_right2">
+						<p id="username" onclick="clickname()">...</p>
+						<p>
+							<span>
+								<img src="images/jb.png">
+							</span>
+							<p id="evd" onclick="clicktoken()">...</p>
+						</p>
+						<h4><span id="limit_status" onclick="clicklimit()">...</span></h4>
+					</div>
+				</div>
+				<div class="clear"></div>
+			</div>
+		</div>
+		<div class="main2k">
+			<div class="main2">
+				<p id="more"></p>
+			</div>
+		</div>
+
+	</body>
+	<script type="text/javascript" language="javascript" >
+      	var eosserver = "http://mainnet.eoscalgary.io";
+      	if (window.location.href.indexOf("https://") === 0) {
+          eosserver = "https://mainnet.eoscalgary.io";
+        }
+
+		var b=document.getElementById('input1');
+		b.focus();
+        document.addEventListener('touchstart', function() {
+          b.focus();
+        });
+
+		var name1 = document.getElementById('username');
+		var limit_status = document.getElementById('limit_status');
+		var desc = document.getElementById('description');
+		var evd = document.getElementById('evd');
+        var portrait = document.getElementById('portrait');
+        var more = document.getElementById('more');
+
+        var user_limit_strs = ['普通用户', '短期可信', '中期可信', '长期可信', '超长期可信'];
+
+		var click1=function() {
+            if (current_is_linker) {
+              more.innerHTML = '这是个侧链的连接帐号，命令列表：<br />'
+                + '向侧链转账：<br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
+                + current_id + '","quantity":"0.1000 EVD","memo":"#HASH#2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824,86400,newaccount11"}\' -p account1'
+                + '<br/><br/>其中的 Hash 值请自行用sha256计算一个随机字符串，示例是"hello"的hash值，用这个会被自动确认，达不到安全效果；'
+                + '<br/>86400 是一天到期，newaccount11 是侧链中的帐号名，如果账户不存在，将帮助用发送者的公钥创建一个，但会扣取创建费用；'
+                + '<br/>比如 0.01 EVD 作为帐号创建费用，0.01 EVD作为传输费用；'
+                + '<br/><br/>在侧链上确定交易被创建后，在侧链上确定交易：'
+                + '<br />cleos push action eoslocktoken confirm  \'{"from":"eoslinker111", "to":"newaccount11","key":"hello", "executer":"newaccount11"}\' -p newaccount11'
+              ;
+            } else {
+              more.innerHTML = '命令列表：<br />'
+                + '转账：<br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
+                + current_id + '","quantity":"1.0000 EVD","memo":""}\' -p account1' + '<br/>'
+                + '锁定：<br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
+                + current_id + '","quantity":"1.0000 EVD","memo":"#LOCK#"}\' -p account1' + '<br/>'
+                + '修改描叙：<br />cleos push action eosvrcomment comment \'{"from":"'
+                + current_id + '", "to":"' + current_id + '", "memo":"这里是新描叙"}\' -p ' + current_id + '<br/>'
+                + '修改头像：<br />cleos push action evrportraits comment \'{"from":"'
+                + current_id + '", "to":"' + current_id + '", "memo":"iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO0TXL0Y4OHwAAAABJRU5ErkJggg=="}\' -p ' + current_id + '<br/>'
+                + 'memo 中为base64格式的 PNG 或者 JPG 图像。如果图片较大，会消耗一些RAM';
+            }
+			;
+		};
+
+		var click2=function() {
+			more.innerHTML='更多信息可参看: <a href="https://github.com/EOSVR/EOSVR/blob/master/sidechain-cn.md" >https://github.com/EOSVR/EOSVR/blob/master/sidechain-cn.md</a>';
+		};
+
+		var clickSearch=function() {
+		  if (b.value) {
+		    more.innerText = "";
+            changeId(b.value, name1, limit_status, desc, evd, portrait, user_limit_strs, eosserver);
+          } else {
+		    more.innerHTML = "可以输入 EOS用户名 或者 用户名@侧链连接者账户 来查看，比如："
+              + "<br/>eoslinker111"
+              + "<br/>eoslocktoken"
+              + "<br/>eosio@eoslinker111"
+              + "<br/>eosvrcomment@eoslinker111";
+          }
+		};
+
+		var clicktoken = function () {
+		    more.innerText = '拥有: ' + get_token2(current_evd_token)
+			  + '\n' + '被锁定: ' + get_token2(current_locked_token);
+        };
+
+		var clicklimit = function () {
+			more.innerHTML='不同用户可以设置不同的转账限制，限制越大，每次投票时的的加成倍数（1-100）就越多。<br />'
+			    + '当前每月转账限制为：' + ((current_limit > 0 && current_limit <=50) ? (current_limit + '%') : '无限制') + '<br />'
+                + '投票加成倍数：' + getLimitMulti() + '<br />'
+				+ '设置命令示例：<br/>'
+				+ 'cleos push action eoslocktoken transfer \'{"from":"'
+			  		+ current_id + '", "to":"' + current_id + '","quantity":"0.0000 EVD","memo":"#LIMIT#10"}\' -p ' + current_id
+				+ '<br/>这会将用户设置为每个月只能转出10%。<br/>注意：只能设置为更小的数，请谨慎操作。';
+		};
+
+		var clickname = function () {
+		  	var h = '当前用户：' + current_id;
+
+		  	if (current_linker) {
+		  	  h += '<br/>当前侧链的链接者为：' + current_linker;
+            } else {
+		  	  h += '<br/>当前在主链上'
+            }
+
+			more.innerHTML= h;
+		};
+
+        var onKeyDown = function() {
+          if (window.event.keyCode === 13) {
+            clickSearch();
+          }
+        }
+
+        var ind = window.location.href.indexOf('id=');
+        var id = ind > 0 ? window.location.href.substring(ind + 3).split('#')[0] : 'eoslinker111';
+
+        changeId(id, name1, limit_status, desc, evd, portrait, user_limit_strs, eosserver);
+
+
+	</script>
+</html>

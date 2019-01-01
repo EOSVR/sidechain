@@ -1,0 +1,157 @@
+{
+   "version": "eosio::abi/1.0",
+   "types": [{
+      "new_type_name": "account_name",
+      "type": "name"
+   }],
+  "structs": [{
+      "name": "transfer",
+      "base": "",
+      "fields": [
+        {"name":"from", "type":"account_name"},
+        {"name":"to", "type":"account_name"},
+        {"name":"quantity", "type":"asset"},
+        {"name":"memo", "type":"string"}
+      ]
+    },{
+     "name": "create",
+     "base": "",
+     "fields": [
+        {"name":"issuer", "type":"account_name"},
+        {"name":"maximum_supply", "type":"asset"}
+     ]
+  },{
+     "name": "issue",
+     "base": "",
+     "fields": [
+        {"name":"to", "type":"account_name"},
+        {"name":"quantity", "type":"asset"},
+        {"name":"memo", "type":"string"}
+     ]
+  },{
+     "name": "confirm",
+     "base": "",
+     "fields": [
+        {"name":"from", "type":"account_name"},
+        {"name":"to", "type":"account_name"},
+        {"name":"key", "type":"string"},
+        {"name":"executer", "type":"account_name"}
+     ]
+  },{
+      "name": "account",
+      "base": "",
+      "fields": [
+        {"name":"balance", "type":"asset"}
+      ]
+    },{
+      "name": "currency_stats",
+      "base": "",
+      "fields": [
+        {"name":"supply", "type":"asset"},
+        {"name":"max_supply", "type":"asset"},
+        {"name":"issuer", "type":"account_name"}
+      ]
+    },{
+      "name": "lockaccounts",
+      "base": "",
+      "fields": [
+        {"name":"to", "type":"account_name"},
+        {"name":"quantity", "type":"int64"},
+        {"name":"memo", "type":"string"}
+      ]
+    },{
+      "name": "timelocks",
+      "base": "",
+      "fields": [
+        {"name":"timeout", "type":"int64"},
+        {"name":"quantity", "type":"int64"},
+        {"name":"from", "type":"int64"}
+      ]
+    },{
+      "name": "hashlocks",
+      "base": "",
+      "fields": [
+        {"name":"mix", "type":"int64"},
+        {"name":"from", "type":"account_name"},
+        {"name":"to", "type":"account_name"},
+        {"name":"quantity", "type":"int64"},
+        {"name":"hash", "type":"checksum256"},
+        {"name":"timeout", "type":"int64"},
+        {"name":"memo", "type":"string"}
+      ]
+    },{
+      "name": "hashlist",
+      "base": "",
+      "fields": [
+        {"name":"timeout", "type":"int64"},
+        {"name":"hash", "type":"checksum256"},
+        {"name":"key", "type":"string"}
+      ]
+    }
+  ],
+  "actions": [{
+      "name": "transfer",
+      "type": "transfer",
+      "ricardian_contract": ""
+    },{
+      "name": "issue",
+      "type": "issue",
+      "ricardian_contract": ""
+    }, {
+      "name": "create",
+      "type": "create",
+      "ricardian_contract": ""
+    }, {
+      "name": "confirm",
+      "type": "confirm",
+      "ricardian_contract": ""
+    }
+
+  ],
+  "tables": [{
+      "name": "accounts",
+      "type": "account",
+      "index_type": "i64",
+      "key_names" : ["currency"],
+      "key_types" : ["uint64"]
+    },{
+      "name": "stat",
+      "type": "currency_stats",
+      "index_type": "i64",
+      "key_names" : ["currency"],
+      "key_types" : ["uint64"]
+    },{
+      "name": "timelockss",
+      "type": "timelocks",
+      "index_type": "i64",
+      "key_names" : ["timeout"],
+      "key_types" : ["uint64"]
+    },{
+      "name": "lockss",
+      "type": "lockaccounts",
+      "index_type": "i64",
+      "key_names" : ["to"],
+      "key_types" : ["uint64"]
+    },{
+      "name": "hashlockss",
+      "type": "hashlocks",
+      "index_type": "i64",
+      "key_names" : ["mix"],
+      "key_types" : ["uint64"]
+    },{
+      "name": "depositss",
+      "type": "lockaccounts",
+      "index_type": "i64",
+      "key_names" : ["to"],
+      "key_types" : ["uint64"]
+    },{
+      "name": "hashss",
+      "type": "hashlist",
+      "index_type": "i64",
+      "key_names" : ["timeout"],
+      "key_types" : ["uint64"]
+    }
+  ],
+  "ricardian_clauses": [],
+  "abi_extensions": []
+}
