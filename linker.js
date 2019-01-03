@@ -4,15 +4,17 @@ const utils = require('./utils.js');
 
 const conf = require('./config.js');
 
+const pair = require('./pair.js');
+
 const linker = conf.linker;
 const src = conf.src;
 const dest = conf.dest;
 
 
-const retry_create_pair = 3;
-const retry_fail_timeout = 3600; // After 1 hour , will retry create pair again.
 const time_buffer = 1800; // 0.5 hour buffer for one operation (transaction)
 const check_interval = 15000; // Check status every 15 seconds
+
+const retry_create_pair = pair.retry_create_pair;
 
 
 let hashkeys = { '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824': 'hello' };
@@ -76,158 +78,21 @@ const CrossChainGetHashKey = function (src) {
   });
 };
 
-const havePairs = function (data, row) {
-  let mix = row.mix + '_' + row.timeout;
-  let ind = data.pairs.indexOf(mix);
-  return (ind >= 0);
-};
-
-const confirmFromData = function (data, row) {
-  if (!data.pairs) return;
-  let mix = row.mix + '_' + row.timeout;
-  
-  let ind = data.pairs.indexOf(mix);
-  if (ind >= 0) {
-    data.pairs.splice(ind, 1);
-  
-    data.finish_pairs.push(ind);
-  
-    if (data.failed && data.failed[mix])
-      delete data.failed[mix];
-  
-    let cost_change = 0;
-    if (data.costs[mix])
-      cost_change = -data.costs[mix];
-  
-    setUserCredit(data.users, row, 0, 1, 0, cost_change);
-  }
-};
-
-// This user send a hash lock, but do not reveal the lock.
-// Maybe it is malicious. Should block it.
-const cancelFromData = function (data, row) {
-  if (!data.pairs) return;
-  
-  let mix = row.mix + '_' + row.timeout;
-  
-  let ind = data.pairs.indexOf(mix);
-  if (ind >= 0) {
-    data.pairs.splice(ind, 1);
-    
-    data.finish_pairs.push(ind);
-    
-    if (data.failed && data.failed[mix])
-      delete data.failed[mix];
-    
-    setUserCredit(data.users, row, 0, 0, 1);
-  }
-};
-
-const setUserCredit = function (users, row, start, finished, cancelled, cost=0) {
-  let account = row.from;
-  if (row.from === linker) account = row.to;
-  
-  if (!users[account]) {
-    users[account] = { started: 0, finished:0, cancelled: 0, cost: 0 };
-  }
-  
-  users[account].started += start;
-  users[account].finished += finished;
-  users[account].cancelled += cancelled;
-  users[account].cost += cost;
-  users[account].lastupdated = +new Date();
-};
-
-const addIntoData = function (data, row) {
-  let mix = row.mix + '_' + row.timeout;
-  
-  let ind = data.pairs.indexOf(mix);
-  if (ind < 0) {
-    data.pairs.push(mix);
-    data.failed[mix] = 0;
-    
-    setUserCredit(data.users, row, 1, 0, 0);
-  }
-};
-
-const addCostIntoData = function (data, row) {
-  let mix = row.mix + '_' + row.timeout;
-  
-  let ind = data.pairs.indexOf(mix);
-  if (ind < 0) {
-    data.pairs.push(mix);
-    
-    data.costs[mix] = 1;
-    
-    setUserCredit(data.users, row, 0, 0, 0, 1);
-  }
-};
-
-const addFailIntoData = function (data, row, times=1) {
-  let mix = row.mix + '_' + row.timeout;
-  
-  if (data.failed[mix])
-    data.failed[mix] += times;
-  else
-    data.failed[mix] = times;
-  
-  if (data.failed[mix] >= retry_create_pair) {
-    data.fail_timeout[mix] = new Date() / 1000 + retry_fail_timeout; // Retry after 30 minutes
-  }
-};
-
-const canTransfer = function (data, row) {
-  let account = row.from;
-  if (row.from === linker) account = row.to;
-  
-  if (data.users[account]) {
-    if (data.users[account].started > data.users[account].finished + data.users[account].cancelled) {
-      return false;
-    }
-
-    // If create an account for it, but it do not confirm the hash lock. Reject it.
-    if (data.users[account].cost > 0) {
-      return false;
-    }
-  }
-  
-  return true;
-};
-
-const isTransfered = function (data, row) {
-  if (!data.pairs) return false;
-  
-  let mix = row.mix + '_' + row.timeout;
-  
-  return data.pairs.indexOf(mix) >= 0 || data.finish_pairs.indexOf(mix) >= 0;
-};
-
-const isFailed = function (data, row) {
-  if (!data.failed) return false;
-  
-  let mix = row.mix + '_' + row.timeout;
-  
-  if (data.failed[mix] >= retry_create_pair) {
-    if (data.fail_timeout && data.fail_timeout[mix] < new Date() / 1000) {
-      data.failed[mix] = 0;
-      return false; // Retry again
-    }
-    
-    return true;
-  }
-  
-  return false;
-};
 
 const doTransferTo = function (dest, linker, data) {
   return utils.PushTransaction(dest, 'eoslocktoken', 'transfer', linker, data).then(function () {
-    console.log('Linked transfer: ' + data.from + "->" + data.to + ' created.');
+    console.log(dest.httpEndpoint + ' linked transfer: ' + data.from + "->" + data.to + ' created.');
   });
 };
 
 // When fail, transfer back with reason
 const doTransferBack = function (src, row, reason) {
-  if (row.to !== linker) throw new Error('Invalid transfer back!');
+  if (row.to !== linker) {
+    console.dir(row);
+    throw new Error('Invalid transfer back!');
+  }
+  console.log(src.httpEndpoint + ' transfer ' + row.from + '->' + row.to + ' can not link because: ' + reason);
+  return;   // Can not transfer back because it is same Index in contract. (from^to == to^from)
   
   let quantity = (row.quantity / 10000).toFixed(4) + ' EVD';
   
@@ -240,10 +105,9 @@ const doTransferBack = function (src, row, reason) {
   
   let data = { from: row.to, to: row.from, quantity: quantity, memo: memo };
   
-  // Can not transfer back because it is same Index in contract. (from^to == to^from)
-  //return utils.PushTransaction(src, 'eoslocktoken', 'transfer', linker, data).then(function () {
-  console.log('Transfer ' + row.from + '->' + row.to + ' can not link because: ' + reason);
-  //});
+  return utils.PushTransaction(src, 'eoslocktoken', 'transfer', linker, data).then(function () {
+   console.log(src.httpEndpoint + ' transfer ' + row.from + '->' + row.to + ' can not link because: ' + reason);
+  });
 };
 
 const createAccountFromSrc = function (src, from, dest, to, linker) {
@@ -259,7 +123,7 @@ const createTransferTo = function (onerow, src, dest, linker, data1) {
   let data = {from: linker, to: params.to, quantity: params.quantity, memo: params.memo};
   
   if (!params || !params.to) {
-    addFailIntoData(data1, onerow, retry_create_pair);
+    data1.addFailIntoData(onerow, retry_create_pair);
     return doTransferBack(src, onerow, params.reason);
   }
   
@@ -275,26 +139,26 @@ const createTransferTo = function (onerow, src, dest, linker, data1) {
       let p1 = GetChainTransferParameters(onerow, src, true);
   
       if (!p1.quantity) {
-        addFailIntoData(data1, onerow, retry_create_pair);
+        data1.addFailIntoData(onerow, retry_create_pair);
         return doTransferBack(src, onerow, p1.reason);
       } else {
         return createAccountFromSrc(src, onerow.from, dest, params.to, linker).catch(() => {
-          console.log('Create account ' + params.to + ' failed.');
-          throw new Error('Fail to create account');
+          throw new Error(dest.httpEndpoint + ' fail to create account' + params.to);
         }).then(() => {
-          addCostIntoData(data1, onerow);
+          data1.addCreateUserCostIntoData(onerow);
           
           data.quantity = p1.quantity;
-          console.log('Account ' + params.to + ' created.');
+          console.log(dest.httpEndpoint + ' account ' + params.to + ' created.');
     
           return doTransferTo(dest, linker, data);
         });
       }
     }
   }).then(() => {
-    addIntoData(data1, onerow);
+    data1.addIntoData(onerow);
   }).catch((err) => {
-    addFailIntoData(data1, onerow);
+    console.log(err);
+    data1.addFailIntoData(onerow);
   })
 };
 
@@ -306,9 +170,10 @@ const CrossChainTransfer = function (src, dest, linker, data1) {
       
       for(let i in dat.rows) {
         let onerow = dat.rows[i];
-  
-        if (!isTransfered(data1, onerow) && !isFailed(data1, onerow) && canTransfer(data1, onerow)) {
-          list.push(createTransferTo (onerow, src, dest, linker, data1));
+        if (onerow.to !== linker) continue;
+        
+        if (data1.canTransfer(onerow)) {
+          list.push(createTransferTo(onerow, src, dest, linker, data1));
         }
       }
       
@@ -327,26 +192,27 @@ const CrossChainConfirm = function (src, dest, linker, data1, index='2') {
           for(let i in dat.rows) {
             let onerow = dat.rows[i];
             if (onerow == null) continue;
-            
-            if (isTimeout(onerow.timeout)) {
+            if (onerow.to !== linker && onerow.from !== linker) continue;
+    
+              if (isTimeout(onerow.timeout)) {
               let data = {from: onerow.from, to: onerow.to, key: "", executer: linker};
     
               list.push(utils.PushTransaction(dest, 'eoslocktoken', 'confirm', linker, data).then(function () {
-                cancelFromData(data1, onerow);
-                console.log('Confirmed: ' + data);
+                data1.cancelFromData(onerow);
+                console.log(dest.httpEndpoint + ' confirmed: ' + data);
               }));
             } else if (onerow.hash) {
               
               let key = getHashKey(onerow.hash);
-              if (key && havePairs(data1, onerow)) {
+              if (key && data1.canConfirm(onerow)) {
                 // Confirm in current chain
                 let data = {from: onerow.from, to: onerow.to, key: key, executer: linker};
     
                 list.push(utils.PushTransaction(dest, 'eoslocktoken', 'confirm', linker, data).then((d) => {
-                  confirmFromData(data1, onerow);
-                  console.log('Confirmed: ' + onerow.from + "->" + onerow.to);
+                  data1.confirmFromData(onerow);
+                  console.log(dest.httpEndpoint + ' confirmed: ' + onerow.from + "->" + onerow.to);
                 }).catch((err) => {
-                  console.log('Confirm error:' + onerow.from + "->" + onerow.to + '\n' + err);
+                  console.log(dest.httpEndpoint + ' confirm error:' + onerow.from + "->" + onerow.to + '\n' + err);
                 }));
     
               }
@@ -358,27 +224,7 @@ const CrossChainConfirm = function (src, dest, linker, data1, index='2') {
     });
 };
 
-const LoadData = function (file) {
-  let result;
-  try {
-    result = JSON.parse(fs.readFileSync(file, 'utf-8'));
-  } catch (ex) {
-    result = {};
-  }
-  
-  if (!result.pairs) result.pairs = [];
-  if (!result.finish_pairs) result.finish_pairs = [];
-  if (!result.failed) result.failed = {};
-  if (!result.fail_timeout) result.fail_timeout = {};
-  if (!result.users) result.users = {};
-  if (!result.costs) result.costs = {};   // Like black list. List the amount of users created for certain user, but it do not confirm!
 
-  return result;
-};
-
-const SaveData = function (file, data) {
-  fs.writeFileSync(file,  JSON.stringify(data), 'utf-8');
-};
 
 // Do cross chain operation
 const DoCrossChain = function () {
@@ -404,14 +250,25 @@ const DoCrossChain = function () {
         console.error(err);
       }
     }).finally(() => {
-        SaveData('src.data', src_data);
-        SaveData('dest.data', dest_data);
+        pair.SaveData('src.data', src_data);
+        pair.SaveData('dest.data', dest_data);
         setTimeout(DoCrossChain, check_interval); // Run it again
     });
 };
 
-src_data = LoadData('src.data');
-dest_data = LoadData('dest.data');
-
+src_data = pair.LoadData('src.data', linker);
+dest_data = pair.LoadData('dest.data', linker);
 
 DoCrossChain();
+
+console.log('Linker is working... Try the following in main chain: (hash key is "hello")');
+console.log('cleos push action eoslocktoken transfer  \'{"from":"guest1111113", "to":"'
+  + linker
+  + '","quantity":"0.1000 EVD","memo":"#HASH#2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824,86400,guest1111113"}\' -p guest1111113');
+
+console.log('-----');
+console.log('And confirm command like:');
+console.log('cleos push action eoslocktoken confirm  \'{"from":"'
+  + linker + '", "to":"guest1111113","key":"hello", "executer":"guest1111113"}\' -p guest1111113');
+
+console.log('-----');

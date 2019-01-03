@@ -11,10 +11,11 @@
   "dependencies": {
     "binaryen": "^61.0.0",
     "bluebird": "^3.5.3",
-    "eosjs": "^16.0.8",
+    "eosjs": "^20.0.0-beta3",
     "fcbuffer": "^2.2.2",
     "long": "^4.0.0",
     "request": "^2.88.0",
-    "request-promise": "^4.2.2"
+    "request-promise": "^4.2.2",
+    "node-fetch": "^2.3.0"
   }
 }

@@ -5,3 +5,10 @@ package-lock.json
 .idea
 
 test.sh
+
+config.js
+
+backup
+
+src.data
+dest.data

@@ -1,104 +1,190 @@
-const binaryen = require('binaryen');
+const { Api, JsonRpc, RpcError, Serialize } = require('eosjs');
+const JsSignatureProvider = require('eosjs/dist/eosjs-jssig');
+const fetch = require('node-fetch');                            // node only; not needed in browsers
+const { TextEncoder, TextDecoder } = require('util');           // node only; native TextEncoder/Decoder
+
+
 const rp = require('request-promise');
-const EOS = require('eosjs');
 const Long = require("long");
 const fs = require('fs');
 
 // DoTx(eos, 'eosio.token', 'transfer', 'account1', {from: 'account1',to: 'account2',quantity: '1.0000 EOS', memo: ''} )
 exports.PushTransaction = function (config, contract, action, actor, data, permission='active') {
-    eos = EOS({
-        keyProvider: config.keyProvider,
-        httpEndpoint: config.httpEndpoint,
-        broadcast: true,
-        sign: true
-    });
+    const rpc = new JsonRpc(config.httpEndpoint, {fetch});
+    const signatureProvider = new JsSignatureProvider.default(config.keyProvider);
+    const api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
 
-  return eos.transaction(
-    {
-      actions: [
-        {
-          account: contract,
-          name: action,
-          authorization: [{
-            actor: actor,
-            permission: permission
-          }],
-          data: data
-        }
-      ]
-    }
-  );
-  
+    return (async () => {
+      const result = await api.transact({
+        actions: [
+          {
+            account: contract,
+            name: action,
+            authorization: [{
+              actor: actor,
+              permission: permission
+            }],
+            data: data
+          }
+        ]
+      }, {
+        blocksBehind: 3,
+        expireSeconds: 30,
+      });
+      return result;
+    })();
 };
 
 exports.SetContract = function (config, account, wasm_file, abi_file) {
-  let eos = EOS({
-      keyProvider: config.keyProvider,
-      httpEndpoint: config.httpEndpoint,
-      broadcast: true,
-      sign: true
-  });
+  const rpc = new JsonRpc(config.httpEndpoint, {fetch});
+  const signatureProvider = new JsSignatureProvider.default(config.keyProvider);
+  const api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+  
+  console.log('Set Contract');
+  
+  return (async () => {
+    let wasm = fs.readFileSync(wasm_file);
+    let abi = fs.readFileSync(abi_file);
+    //wasm = wasm.replace(/(\r\n\t|\n|\r\t| )/gm, "");
 
-
-  let wasm = fs.readFileSync(wasm_file);
-  let abi = fs.readFileSync(abi_file);
-
-  return eos.setcode(account, 0, 0, wasm).catch(function (err) {
-    console.log(err);
-  }).then(function () {
+    //get abi hex
+    const buffer = new Serialize.SerialBuffer({
+      textEncoder: api.textEncoder,
+      textDecoder: api.textDecoder,
+    });
     
-    let obj;
-    try {
-      obj = JSON.parse(abi);
-    } catch (ex) {
-      console.log('Error in abi file: ' + abi_file);
-      console.log(ex);
-    }
+    abi = JSON.parse(abi);
+    let abiDefinition = api.abiTypes.get('abi_def');
+    abi = abiDefinition.fields.reduce(
+      (acc, {name: fieldName}) => Object.assign(acc, {[fieldName]: acc[fieldName] || []}),
+      abi,
+    );
+    abiDefinition.serialize(buffer, abi);
+    let abi_buf = Buffer.from(buffer.asUint8Array()).toString(`hex`);
     
-    return eos.setabi(account, obj);
-  });
+    const result = await api.transact({
+      actions: [{
+        account: 'eosio',
+        name: 'setcode',
+        authorization: [{
+          actor: account,
+          permission: 'active',
+        }],
+        data: {
+          account: account,
+          vmtype: 0,
+          vmversion: 0,
+          code: wasm
+        },
+      },
+        {
+          account: 'eosio',
+          name: 'setabi',
+          authorization: [{
+            actor: account,
+            permission: 'active',
+          }],
+          data: {
+            account: account,
+            abi: abi_buf
+          },
+        }
+      
+      ]
+    }, {
+      blocksBehind: 3,
+      expireSeconds: 30,
+    });
+  
+    return result;
+  })();
   
 };
 
 exports.CreateAccount = function(config, from, newAccount,
      pubkey,
      ram=8192, net='10.0000 EOS', cpu='10.0000 EOS') {
-
-  let eos = EOS({
-    keyProvider: config.keyProvider,
-    httpEndpoint: config.httpEndpoint,
-    broadcast: true,
-    sign: true
-  });
-
-  return eos.transaction(tr => {
-    tr.newaccount({
-      creator: from,
-      name: newAccount,
-      owner: pubkey,
-      active: pubkey
-    })
-    tr.buyrambytes({
-      payer: from,
-      receiver: newAccount,
-      bytes: ram
-    })
-    tr.delegatebw({
-      from: from,
-      receiver: newAccount,
-      stake_net_quantity: net,
-      stake_cpu_quantity: cpu,
-      transfer: 0
-    })
-  })
+  
+  const rpc = new JsonRpc(config.httpEndpoint, {fetch});
+  const signatureProvider = new JsSignatureProvider.default(config.keyProvider);
+  const api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+  
+  console.log('Create account');
+  
+  return (async () => {
+    const result = await api.transact({
+      actions: [
+        {
+          account: 'eosio',
+          name: 'newaccount',
+          authorization: [{
+            actor: from,
+            permission: 'active'
+          }],
+          data: {
+            creator: from,
+            name: newAccount,
+            owner: {
+              threshold: 1,
+              keys: [{ key: pubkey, weight: 1 }],
+              accounts: [],
+              waits:[]
+            },
+            active: {
+              threshold: 1,
+              keys: [{ key: pubkey, weight: 1 }],
+              accounts: [],
+              waits:[]
+            }
+          }
+        },
+  
+        {
+          account: 'eosio',
+          name: 'delegatebw',
+          authorization: [{
+            actor: from,
+            permission: 'active'
+          }],
+          data: {
+            from: from,
+            receiver: newAccount,
+            stake_net_quantity: net,
+            stake_cpu_quantity: cpu,
+            transfer: false
+          }
+        },
+  
+        {
+          account: 'eosio',
+          name: 'buyrambytes',
+          authorization: [{
+            actor: from,
+            permission: 'active'
+          }],
+          data: {
+            payer: from,
+            receiver: newAccount,
+            bytes: ram
+          }
+        }
+      ]
+    }, {
+      blocksBehind: 3,
+      expireSeconds: 30,
+    });
+    return result;
+  })();
   
 };
 
+/*
 const getNameCode = function(account) {
   if (account.length === 0) return '';
   
   return EOS.modules['format'].encodeName(account, false);
 };
+*/
 
 // GetTable('http://localhost:8888', 'account1', 'eosvrcomment', 'commentss')
 exports.GetTableItem = function (site, scope, contract, table, accountId='', index_position='', key_type='i64') {
@@ -108,10 +194,15 @@ exports.GetTableItem = function (site, scope, contract, table, accountId='', ind
               "table": table, 
               "json": true}; 
   
-  let nameCode = getNameCode(accountId);
+  /*let nameCode = getNameCode(accountId);
   if (nameCode.length > 0) {
     body.lower_bound = nameCode;
     body.upper_bound = Long.fromString(nameCode, true).add(1).toString();
+  }
+  */
+  if (accountId) {
+    body.lower_bound = accountId;
+    body.limit = 1;
   }
 
   if (index_position.length > 0) {
@@ -230,7 +321,7 @@ exports.CreateAccountIfNotExist = function (config, from, account,
   });
 };
 
-exports.CreateContractAccount = function (config, account, contract_folder,
+exports.CreateContractAccount = function (config, account, contract_folder, set_eosio_code,
                                           pubkey,
                                           ram=800000, net='10.0000 EOS', cpu='10.0000 EOS') {
   
@@ -245,8 +336,77 @@ exports.CreateContractAccount = function (config, account, contract_folder,
     
     let wasm_file = contract_folder + '/' + cname + '.wasm';
     let abi_file = contract_folder + '/' + cname + '.abi';
-    
-    return exports.SetContract(config, account, wasm_file, abi_file );
+  
+    if (set_eosio_code) {
+      return exports.UpdateAuth2(config, account, false, [pubkey], ['eosio', account], ['active', 'eosio.code']).then(() => {
+        return exports.SetContract(config, account, wasm_file, abi_file);
+      });
+    } else {
+      return exports.SetContract(config, account, wasm_file, abi_file);
+    }
   });
   
+};
+
+// auth = { threshold: 1, keys: [{ key: pubkey, weight: 1 }], accounts: [], waits:[] }
+exports.UpdateAuth = function (config, account, is_owner, auth) {
+  const rpc = new JsonRpc(config.httpEndpoint, {fetch});
+  const signatureProvider = new JsSignatureProvider.default(config.keyProvider);
+  const api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+  
+  
+  return (async () => {
+    const result = await api.transact({
+      actions: [{
+        account: 'eosio',
+        name: 'updateauth',
+        authorization: [{
+          actor: account,
+          permission: 'owner',
+        }],
+        data: {
+          account: account,
+          permission: (is_owner ? 'owner': 'active'),
+          parent: 'owner',
+          auth: auth
+        },
+      }]
+    }, {
+      blocksBehind: 3,
+      expireSeconds: 30,
+    });
+    return result;
+  })();
+  
+};
+
+exports.UpdateAuth2 = function (config, account, is_owner, keys, accounts=[], accounts_permissions=[]) {
+  let auth = {
+    threshold: 1,
+    keys: [],
+    accounts: [],
+    waits: []
+  };
+  
+  for(let one in keys) {
+    let key = keys[one];
+    if (typeof key === 'string' && key.length > 50) {
+      auth.keys.push({key: key, weight: 1});
+    }
+  }
+  
+  for(let one in accounts) {
+    let account = accounts[one];
+    
+    if (typeof account === 'string' && account.length > 0 && account.length <= 12) {
+      let perm = 'active';
+      if (accounts_permissions[one]) {
+        perm = accounts_permissions[one];
+      }
+      
+      auth.accounts.push({ permission: { actor: account, permission: perm }, weight: 1});
+    }
+  }
+  
+  return exports.UpdateAuth(config, account, is_owner, auth);
 };
