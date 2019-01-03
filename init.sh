@@ -12,7 +12,7 @@ cd ~/git/eos/build/contracts
 
 echo === Start to setup ===
 
-${cu1} set contract eosio ./eosio.bios -p eosio
+${cu1} set contract eosio ./eosio.bios -p eosio || exit
 
 ${cu1} create account eosio eosio.token $pubkey
 ${cu1} create account eosio eosio.ramfee $pubkey
@@ -24,13 +24,21 @@ ${cu1} create account eosio eosio.vpay $pubkey
 
 
 echo === Issue EOS Token ===
-${cu1} set contract eosio.token ./eosio.token -p eosio.token
+${cu1} set contract eosio.token ./eosio.token -p eosio.token || exit
 ${cu1} push action eosio.token create '{"issuer":"eosio","maximum_supply":"10000000000.0000 EOS","can_freeze":"0","can_recall":"0","can_whitelist":"0"}' -p eosio.token
 
 ${cu1} push action eosio.token issue '{"to":"eosio","quantity":"1000000000.0000 EOS","memo":"Issue all"}' -p eosio
 
 echo === Set eosio.system ===
-${cu1} set contract eosio ./eosio.system -p eosio
+${cu1} set contract eosio ./eosio.system -p eosio || exit
+
+
+# ============== CONTRACTS ==================
+
+cd ${cur}
+
+echo === Run deploy_contracts.js script to deploy contracts ===
+node deploy_contracts.js
 
 
 # ============== LINKER ==============
@@ -46,15 +54,6 @@ ${cu1} push action eoslocktoken issue '{"to":"'${linker}'","quantity":"1000.0000
 
 echo === Transfer EOS to linker ===
 ${cu1} transfer eosio ${linker} "10000.0000 EOS" -p eosio
-
-
-
-# ============== CONTRACTS ==================
-
-cd ${cur}
-
-echo === Run deploy_contracts.js script to deploy contracts ===
-node deploy_contracts.js
 
 
 
