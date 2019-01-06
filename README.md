@@ -45,3 +45,11 @@ And the source code of the website is in html folder.
 
 [More about setup a EOS chain simply](setup_chain.md)
 
+
+### Contact
+
+Twitter: https://twitter.com/EVD89490917
+
+Medium: https://medium.com/@eosvr
+
+Mail: contact@eosvr.io
