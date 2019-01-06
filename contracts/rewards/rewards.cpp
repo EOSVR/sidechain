@@ -1,8 +1,11 @@
 #include "rewards.hpp"
 
-const uint64_t MANAGER_ACCOUNT = N(eosvrmanager);
 const uint64_t ISSUER_ACCOUNT = N(eoslocktoken);
 const auto TOKEN_SYMBOL = string_to_symbol(4, "EVD");
+
+const uint64_t useconds_per_sec = uint64_t(1000000);
+const uint64_t useconds_per_33day = 33 * 24 * 3600 * useconds_per_sec;
+
 
 const uint64_t MAX_TOKEN_PER_REWARD = 100000000; // 100 M
 const uint64_t MAX_INTERVAL = 86400 * 365; // Max 1 year interval
@@ -10,7 +13,7 @@ const uint64_t MAX_RECEIVE_ACCOUNT = 1000;
 const uint64_t MAX_REWARD_LIMIT = 100000;  // Can get 100 times of voted.
 
 const uint64_t DEFAULT_COMMENTER = N(eosvrcomment);
-const uint64_t DEFAULT_MAX_MAX_TOKEN_PER_REWARD = 100; // Default max token per reward is 0.01 EVD.
+const uint64_t DEFAULT_MAX_TOKEN_PER_REWARD = 100; // Default max token per reward is 100 EVD.
 const uint64_t DEFAULT_INTERVAL = 84600 * 7; // 1 week
 const uint64_t DEFAULT_RECEIVE_ACCOUNT = 10; // Default 10 accounts can get reward.
 const uint64_t DEFAULT_REWARD_LIMIT = 10; // Can get 1% of voted.
@@ -128,6 +131,7 @@ void setApply(uint64_t _self, account_name from, int64_t amount, string memo_par
       s.reward_owner = reward_owner;
 
       s.last_support = 0; // Support can only get by reward
+      s.start_time = 0;
     });
 }
 
@@ -186,6 +190,17 @@ void transferAction (uint64_t _self, uint64_t code) {
   } else if (begin_with(str, "#CANCEL#")) {
     cancelApply(_self, from, data.quantity.amount);
     return;
+/* === DEBUG START ===
+  } else if (begin_with(str, "#RESET#")) {
+    rewardTable table2( _self, _self );
+    auto current = table2.find(from);
+    eosio_assert(current != table2.end(), "No account.");
+
+    table2.modify( current, 0, [&]( auto& s ) {
+       s.lastreward = 0; // Let it can reward again
+    });
+    return;
+// === DEBUG END */
   }
 
 
@@ -193,7 +208,7 @@ void transferAction (uint64_t _self, uint64_t code) {
 
   eosio_assert(data.quantity.amount >= MIN_TOTAL_REWARD, "Total rewards must be greater than 100 EVD"); // Or it is less than the price of consumed memory
 
-  int64_t       maxtoken = getParameterInt(str, ind, ",", DEFAULT_MAX_MAX_TOKEN_PER_REWARD);
+  int64_t       maxtoken = getParameterInt(str, ind, ",", DEFAULT_MAX_TOKEN_PER_REWARD);
   eosio_assert(maxtoken > 0 && maxtoken <= MAX_TOKEN_PER_REWARD, "Max token must be 1 - 100000000 (100M)");
   
   account_name  commenter = getParameterAccount(str, ind, ",", DEFAULT_COMMENTER);
@@ -299,8 +314,14 @@ int64_t calculateOneReward(uint64_t _self, int64_t max_reward, account_name comm
 
         auto support = applied->last_support;
 
+        int64_t newSupport = item_itr->total - item_itr->totaldown;
+        int64_t newStartTime = applied->start_time;
+        if (newSupport > 0 && newStartTime == 0)
+            newStartTime = current_time();
+
         tableApply.modify( applied, 0, [&]( auto& s ) {
-            s.last_support = item_itr->total - item_itr->totaldown;
+            s.last_support = newSupport;
+            s.start_time = newStartTime;
         });
 
         int64_t reject_multi = ((rewardtype - 10) / 2 + 1);
@@ -308,7 +329,10 @@ int64_t calculateOneReward(uint64_t _self, int64_t max_reward, account_name comm
 
         current_max_reward = (support + item_itr->totaldown * reject_multi) * rewardlimit / 1000;
 
-        if (current_max_reward > applied->deposit) {
+        // When timeout (After 33 days), NO reward.
+        if (applied->start_time > 0 && current_time() - applied->start_time >= useconds_per_33day) {
+            current_max_reward = 0;
+        } else if (current_max_reward > applied->deposit) {
             current_max_reward = applied->deposit;
         }
 

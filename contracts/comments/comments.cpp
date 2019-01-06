@@ -11,7 +11,7 @@ const uint64_t useconds_per_sec = uint64_t(1000000);
 const uint64_t useconds_per_day = 24 * 3600 * useconds_per_sec;
 const uint64_t useconds_10min = 600 * useconds_per_sec;
 
-const uint64_t MAX_WEIGHT = 100;  // Weight should be (1-100). 1 for the account who do not have limitation. 100 is 1% per month.
+const uint64_t MAX_WEIGHT = 1000;  // Weight should be (1-1000). 1 for the account who do not have limitation. 100 is 1% per month.
 
 const uint64_t MIN_EVD = 1 * 10000; // Min lock is 1 EVD at first comment
 
@@ -31,26 +31,21 @@ int64_t getWeight(uint64_t owner) {
         int64_t limit = limit0->quantity;
 
         /*
-        25 - 50: 1;
-        11 - 24: 2;
-        5 - 10: 3;
-        2 - 4: 9 - limit;
-        1: 10;
-        Other: 0.1;
+        Limit Multi
+        11 - 50: 5 * 100 / Limit;
+        1 - 10: 10 * 100 / Limit;
+        Other: 1;
         */
 
         if (limit <= 0 || limit > 50)
             return 1;
-        else if (limit >= 25)
-            return 10;
-        else if (limit >= 11)
-            return 20;
-        else if (limit >= 5)
-            return 30;
-        else if (limit >= 2)
-            return (9 - limit) * 10;
-        else
-            return MAX_WEIGHT;
+
+        int64_t result = (limit > 10) ? 5 : 10;
+        result = result * 100 / limit;
+
+        if (result > MAX_WEIGHT) result = MAX_WEIGHT;
+
+        return result;
     }
 }
 

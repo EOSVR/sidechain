@@ -26,7 +26,7 @@
 				<div class="sousu">
 						<p><img src="images/fdj.png"></p>
 
-						<input type="text" name="" id="input1" value="" placeholder="请输入EOS链用户名" />
+						<input type="text" name="" id="input1" value="" placeholder="请输入EOS链用户名，格式为: [用户名]@[侧链连接者名]" />
 						<input type="submit" name="" id="btn" value="搜索" onclick="clickSearch()" />
 				</div>
 			</div>
@@ -44,8 +44,7 @@
 				</div>
 				<div class="main1_right">
 					<div class="tx">
-						<!--img id="portrait" src="images/tx.jpg"-->
-						<img id="portrait" src="" />
+						<img id="portrait" src="" onclick="clickportrait()" />
 					</div>
 					<br/>
 					<div class="main1_right2">
@@ -102,7 +101,7 @@
                 + '<br />cleos push action eoslocktoken confirm  \'{"from":"eoslinker111", "to":"newaccount11","key":"hello", "executer":"newaccount11"}\' -p newaccount11'
               ;
             } else {
-              more.innerHTML = '命令列表：<br />'
+              var html1 = '命令列表：<br />'
                 + '转账：<br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
                 + current_id + '","quantity":"1.0000 EVD","memo":""}\' -p account1' + '<br/>'
                 + '锁定：<br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
@@ -112,8 +111,19 @@
                 + '修改头像：<br />cleos push action evrportraits comment \'{"from":"'
                 + current_id + '", "to":"' + current_id + '", "memo":"iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO0TXL0Y4OHwAAAABJRU5ErkJggg=="}\' -p ' + current_id + '<br/>'
                 + 'memo 中为base64格式的 PNG 或者 JPG 图像。如果图片较大，会消耗一些RAM';
+
+              if (current_linker) {
+                html1 += '<br/><br />跨链转账命令:<br/>'
+				  + '向这个帐号转：<br/>cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
+	                + current_linker + '","quantity":"0.1000 EVD","memo":"#HASH#2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824,86400,'
+				  	+ current_id + '"}\' -p account1<br/>'
+				  + '这个帐号转出到主链的account1：<br/>cleos push action eoslocktoken transfer \'{"from":"' + current_id + '", "to":"'
+                  + current_linker + '","quantity":"0.1000 EVD","memo":"#HASH#2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824,86400,account1"}\' -p '
+				  + current_id + '<br/>';
+			  }
+
+              more.innerHTML = html1;
             }
-			;
 		};
 
 		var click2=function() {
@@ -124,6 +134,7 @@
 		  if (b.value) {
 		    more.innerText = "";
             changeId(b.value, name1, limit_status, desc, evd, portrait, user_limit_strs, eosserver);
+            click1();
           } else {
 		    more.innerHTML = "可以输入 EOS用户名 或者 用户名@侧链连接者账户 来查看，比如："
               + "<br/>eoslinker111"
@@ -154,11 +165,18 @@
 		  	if (current_linker) {
 		  	  h += '<br/>当前侧链的链接者为：' + current_linker;
             } else {
-		  	  h += '<br/>当前在主链上'
+		  	  h += '<br/>当前在主链上';
             }
 
 			more.innerHTML= h;
 		};
+
+		var clickportrait = function () {
+		  more.innerHTML = '用户可以设置自己的头像。比如：'
+			+ '<br />cleos push action evrportraits comment \'{"from":"'
+            + current_id + '", "to":"' + current_id + '", "memo":"iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO0TXL0Y4OHwAAAABJRU5ErkJggg=="}\' -p ' + current_id + '<br/>'
+            + 'memo 中为base64格式的 PNG 或者 JPG 图像。如果图片较大，会消耗一些RAM';
+        }
 
         var onKeyDown = function() {
           if (window.event.keyCode === 13) {
@@ -167,10 +185,10 @@
         }
 
         var ind = window.location.href.indexOf('id=');
-        var id = ind > 0 ? window.location.href.substring(ind + 3).split('#')[0] : 'eoslinker111';
+        var id = ind > 0 ? window.location.href.substring(ind + 3).split('#')[0] : 'index_1';
 
         changeId(id, name1, limit_status, desc, evd, portrait, user_limit_strs, eosserver);
-
+        click1();
 
 	</script>
 </html>

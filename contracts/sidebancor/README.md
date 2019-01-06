@@ -1,14 +1,24 @@
-## BANCOR for Side-Chain
+## BANCOR in Side-Chain
 
-Use bancor algorithm to exchange EVD <-> EOS. Referenced from EOS bancor.
+[中文](README-cn.md)
 
-At first, account do not have EOS or EVD. Other accounts can invest it. Every exchange in bancor will take exchange fee, these fee will record. And when an investor withdraw, it can take some bonus.
+- Use Bancor algorithm to exchange two tokens. Reference the bancor code in EOS contract.
 
-If there are bonus in contract, new investor will separate its invest into two parts. One part to bonus, one part to invest. This is to make sure when new invest come, old invests will have same bonus if withdraw.
+- User can invest too.
 
 ### Usage
 
-#### Invest
+```
+#EOS to EVR
+cleos transfer abcdabcdabcd eosvrmarkets "10.0000 EOS"
+
+#EVR to EOS
+cleos push action eosvrtokenss transfer '{"from":"abcdabcdabcd", "to":"eosvrmarkets","quantity":"10.0000 EVR","memo":""}' -p abcdabcdabcd
+```
+
+### Invest
+
+Users can invest the exchange contract by both tokens. All users exchange in it with 0.5% fee. These fee is the profits of the investment.
 
 ```
 
@@ -19,43 +29,42 @@ cleos push action eoslocktoken transfer '{"from":"account1", "to":"eosvrmarkets"
 
 ```
 
+User can withdraw the investment and get the bonus which is from the exchange fee.
+
 ```
 
 # Withdraw the invested (with bonus if any)
-cleos push action eoslocktoken transfer '{"from":"account1", "to":"eosvrmarkets","quantity":"100.0000 EVD","memo":"#WITHDRAW#"}' -p account1
+# Example: account1 withdraw 50 EVD from invest and profits.
+cleos push action eoslocktoken transfer '{"from":"account1", "to":"eosvrmarkets","quantity":"50.0000 EVD","memo":"#WITHDRAW#"}' -p account1
 
 ```
 
-#### Exchange
+Investment and profits can check by:
 
 ```
-
-#EOS to EVD
-cleos transfer account1 eosvrmarkets "10.0000 EOS"
-
-#EVD to EOS
-cleos push action eoslocktoken transfer '{"from":"account1", "to":"eosvrmarkets","quantity":"10.0000 EVD","memo":""}' -p account1
-
-```
-
-#### Get DATA
-
-```
-
-# Get EVD Invest Data
-# NOTE: 
-#   When account is empty, represent the total amount of deposit.
-#   When account is eosvrmarket, represent the total amount of bonus.
 cleos get table eosvrmarkets eosvrmarkets depositss1
-
-# Get EOS Invest Data
 cleos get table eosvrmarkets eosvrmarkets depositss2
-
 ```
 
+Result like:
+{
+  "rows": [{
+      "account": "",
+      "deposit": 81000051
+    },{
+      "account": "eosvrmarkets",
+      "deposit": 449
+    },{
+      "account": "account1",
+      "deposit": 80000056
+    },{
+      "account": "account2",
+      "deposit": 999995
+    }
+  ],
+  "more": false
+}
 
+In it, total amount of all investments is the deposit of account ""(empty). Deposit in account "eosvrmarkets" is the total of profits.
 
-### LIMITATION
-
-No limitation
-
+NOTE: Invest will change the exchange rate. It is better to invest in both tokens or invest with small amount.

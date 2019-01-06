@@ -65,9 +65,11 @@ struct applies {
   // It records when account "apply", "reward" (or others reward)
   int64_t last_support;
 
+  int64_t start_time; // time when last_support is bigger than 0. THEN After 33 days, this application will be disabled. (Must re-apply)
+
   auto primary_key() const { return account; }
 
-  EOSLIB_SERIALIZE( applies, (account)(deposit)(ranker)(reward_owner)(last_support))
+  EOSLIB_SERIALIZE( applies, (account)(deposit)(ranker)(reward_owner)(last_support)(start_time))
 };
 
 typedef eosio::multi_index<N(appliess), applies> applyTable;

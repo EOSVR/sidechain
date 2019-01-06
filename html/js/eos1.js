@@ -79,16 +79,12 @@ var getLimitStr = function (user_limit_strs) {
 var getLimitMulti = function () {
   if (current_limit <= 0 || current_limit > 50)
     return 1;
-  else if (current_limit >= 25)
-    return 10;
-  else if (current_limit >= 11)
-    return 20;
-  else if (current_limit >= 5)
-    return 30;
-  else if (current_limit >= 2)
-    return (9 - current_limit) * 10;
-  else
-    return 100;
+  
+  var m = 10;
+  if (current_limit > 10)
+    m = 5;
+
+  return m * 100 / current_limit;
 };
 
 var get_token2 = function (token) {
@@ -117,6 +113,48 @@ var fixserver = function (server) {
   return server;
 }
 
+var REGX_HTML_ENCODE = /"|<|>|[\x00-\x19]|[\x7F-\xFF]/g;
+var encodeHtml = function(s){
+  return (typeof s != "string") ? s :
+    s.replace(REGX_HTML_ENCODE,
+      function($0) {
+        var c = $0.charCodeAt(0), r = ["&#"];
+        c = (c == 0x20) ? 0xA0 : c;
+        r.push(c);
+        r.push(";");
+        return r.join("");
+      });
+};
+
+
+// Parse memo to html mode.
+var parseMemo = function (memo) {
+  var lines = memo.split('\n');
+  var result = '';
+  
+  for (var one in lines) {
+    if (lines.hasOwnProperty(one)) {
+      var oneline = encodeHtml(lines[one]);
+      if (oneline.startsWith('http')) {
+        oneline = '<a href="' + oneline + '">' + oneline + '</a>'
+      } else if (oneline.startsWith('@')) {
+        var ind = oneline.indexOf(' ');
+        if (ind < 0) ind = oneline.length;
+  
+        if (ind > 1) {
+          var account = oneline.substring(1, ind);
+          oneline = '<a href="?id=' + account + '">' + account + '</a>' + oneline.substring(ind);
+        }
+      }
+      
+      result += oneline + '<br />';
+    }
+  }
+  
+  return result;
+  
+};
+
 var changeId = function (id, name1, limit_status, desc, evd, portrait, user_limit_strs, eosserver) {
   if (!id) return;
   
@@ -128,7 +166,7 @@ var changeId = function (id, name1, limit_status, desc, evd, portrait, user_limi
   
   var shortId = id.length > 12 ? (id.substring(0, 10) + '..') : id;
   name1.innerText = shortId;
-  desc.innerText = '...';
+  desc.innerHTML = '...';
   limit_status.innerText = '...';
   evd.innerText = '...';
   portrait.src = "data:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==";
@@ -139,7 +177,7 @@ var changeId = function (id, name1, limit_status, desc, evd, portrait, user_limi
   
   getSideChainServer(eosserver, current_linker, (server) => {
     if (!server) {
-      desc.innerText = 'Invalid Side Chain';
+      desc.innerHTML = 'Invalid Side Chain';
       return;
     }
   
@@ -149,10 +187,10 @@ var changeId = function (id, name1, limit_status, desc, evd, portrait, user_limi
     getTable(server, "eosvrcomment", current_id, "commentss", current_id, 1, (dat)=> {
       if (dat && dat.rows && dat.rows.length > 0) {
         var memo = dat.rows[0].memo;
-        desc.innerText = memo;
+        desc.innerHTML = parseMemo(memo);
         current_is_linker = (memo.indexOf('chain:') >= 0);
       } else {
-        desc.innerText = '';
+        desc.innerHTML = '';
       }
     });
     

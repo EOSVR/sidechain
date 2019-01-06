@@ -45,7 +45,8 @@
               {"name": "deposit", "type": "int64"},
               {"name": "ranker", "type": "account_name"},
               {"name": "reward_owner", "type": "account_name"},
-              {"name": "last_support", "type": "int64"}
+              {"name": "last_support", "type": "int64"},
+              {"name": "start_time", "type": "int64"}
           ]
         },
         {

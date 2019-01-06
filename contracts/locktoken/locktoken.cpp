@@ -578,6 +578,7 @@ uint64_t token::removeTableIfEmpty( uint64_t from, uint64_t to ) {
    return (table2.begin() == table2.end()) ? 0 : 1;
 }
 
+// Confirm a hash lock
 void token::confirm( account_name from,
                       account_name to,
                       string       key,
@@ -628,12 +629,16 @@ void token::confirm( account_name from,
             h = listTable.find(timeout);
         }
 
-        if (s == listTable.end() || !(s->hash == c1->hash)) {
-            listTable.emplace( executer, [&]( auto& s1 ) {
-               s1.timeout = timeout;
-               s1.hash = c1->hash;
-               s1.key = key;
-            });
+        // Do not save default key: "hello" which is for quick transfer
+        if (key != "hello") {
+            auto last1 = listTable.rbegin(); // Do not save if same as last.
+            if (last1 == listTable.rend() || !(last1->hash == c1->hash)) {
+                listTable.emplace( executer, [&]( auto& s1 ) {
+                   s1.timeout = timeout;
+                   s1.hash = c1->hash;
+                   s1.key = key;
+                });
+            }
         }
     }
 

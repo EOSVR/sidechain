@@ -1,124 +1,137 @@
-## Lock Token
+## EVD （eoslocktoken）
 
-The token that can be locked by other or time.
+[中文](README-cn.md)
 
+EVD contract, can lock each other, limited transfer, delayed transfer, hash time lock for transfer.
 
-### Usage
+#### Features and Examples
 
-Same as eosio.token. And add the following in transfer:
+Normal transfer is same as eosio.token . The following are new features:
 
+1, When change to self, it will:
 
-1，Allow transfer to self, this will refresh table by time. If add #LIMIT# in memo, it can set the LimitPerMonth of transfer. Min is 1/100 per month.
-Can only change it to smaller, can not change it to bigger.
+  a, Refresh current account, if there is any delayed transfer ready, it will update the amount of token;
+  
+  b, Write #LIMIT#XXX in memo of transfer, will set the limitation percent of transfer per month. The value is 1-50. Minimum is 1, at this time, can only transfer out 1% tokens per month. To prevent an account change it to a big number and break the restriction, this value can only set to a smaller value. And when the limitation is 1, it can not be set anymore.
 
 Example:
 
 ```
+# account1 set it can only transfer half of its token per month.
 cleos push action eoslocktoken transfer '{"from":"account1", "to":"account1","quantity":"0.0000 EVD","memo":"#LIMIT#50"}' -p account1
 ```
 
-Will set account only can transfer out 50% token per month. (Range is (1-50) percent per month)
+2, When transfer to another account, use #LOCK# in front of memo to lock the token of another, instead of transfer;
 
-2, User only can transfer within limit and locked.
-  Token can transfer in one day = (Token (Do not include timelock tokens) - Lock token) * LimitPerDay
-
-
-3, When transfer to other with memo #LOCK#..., it will lock the token of other, instead of transfer.
 Example:
-
 ```
-cleos push action eoslocktoken transfer '{"from":"account1", "to":"helloworld11","quantity":"100.0000 EVD","memo":"#LOCK# I do not agree with your comments."}' -p account1
+# account1 lock 100 EVD of account2
+cleos push action eoslocktoken transfer '{"from":"account1", "to":"account2","quantity":"100.0000 EVD","memo":"#LOCK# I do not agree with your comments."}' -p account1
 ```
 
-Note: In table, lock value is negative.
+3, When transfer to another account, use #UNLOCK# in front of memo to unlock the token of another, instead of transfer;
 
-4, When transfer to other with memo #UNLOCK#XXX, it will unlock the token of other, instead of transfer.
 Example:
-
 ```
-cleos push action eoslocktoken transfer '{"from":"account1", "to":"helloworld11","quantity":"100.0000 EVD","memo":"#UNLOCK# OK"}' -p account1
+# account1 unlock 100 EVD of account2
+cleos push action eoslocktoken transfer '{"from":"account1", "to":"account2","quantity":"100.0000 EVD","memo":"#UNLOCK# OK"}' -p account1
 ```
 
-Note: Only can unlock to 0, can not unlock to a positive value.
+Note: can only unlock the locked token. If there is no enough locked token, it will fail.
 
-5, When transfer to other with memo #TIME#XXX, these token will unlock after these seconds passed.
+4, When transfer to another account, use #TIME# in front of memo to transfer the token of another with a period of delay;
+
 Example:
+```
+# These 100 EVD will be ready after 1 day.
+cleos push action eoslocktoken transfer '{"from":"account1", "to":"account2","quantity":"100.0000 EVD","memo":"#TIME# 86400"}' -p account1
+
+# After 1 day, account2 can run a transfer to confirm it. Example: send to itself with 0 EVD to receive.
+cleos push action eoslocktoken transfer '{"from":"account2", "to":"account2","quantity":"0.0000 EVD","memo":""}' -p account2
 
 ```
-cleos push action eoslocktoken transfer '{"from":"account1", "to":"helloworld11","quantity":"100.0000 EVD","memo":"#TIME# 86400"}' -p account1
-```
 
-These 100 EVD will unlock after 1 day.
 
-6, All token can be transfer = Fluid token - Locked token recorded in eoslocktoken.
+5, Current liquid (can transfer or vote) token = {all tokens} - {locked token recording in contract (eoslocktoken) } ;
 
-7, If A lock B, B can give 90% token to A and remove the lock. Use "#CONFIRM#":
+6, If A lock B, B can confirm this lock and give 90% tokens to B by adding "#CONFIRM#" in front of memo;
+
 Example:
-
 ```
 cleos push action eoslocktoken transfer '{"from":"account1", "to":"account2","quantity":"0.0001 EVD","memo":"#CONFIRM#"}' -p account1
 ```
 
-Shops may use it to get tokens from customs by lock. And custom can confirm the lock and give token to shop.
+This may use in some shop. Shop can lock EVD of custom and custom confirm to pay.
 
+7, If need to burn EVD and issue them in a side-chain, transfer EVD to eoslocktoken with chain_id of side-chain written in memo.
 
-### Limitation
+```
+# Account1 burn 1000 EVD for side-chain with chain-id: b6a3a2e75f6fc47e7ef8b413ae4ee6eb3a8fefcd01c0b0ecdf688563cfa5f493
+cleos push action eoslocktoken transfer '{"from":"account1", "to":"eoslocktoken","quantity":"1000.0000 EVD","memo":"b6a3a2e75f6fc47e7ef8b413ae4ee6eb3a8fefcd01c0b0ecdf688563cfa5f493"}' -p account1
 
-When limit is 1-50, an account only allow transfer limit% token per month.
-
-Note: limit% = transfered / remain.
-
-Example:
-
-If A have 30 EVD and limitation is 50, A can only transfer 10 at one time because 50%=10/(30-10).
-
-If A want to transfer more EVD, A can transfer many times.
-
-
-Note:
-
-Limitation can only set to smaller number. Example: Can change from 50 to 20. Can NOT change from 20 to 30.
-
-Limit weight: ( code is in contract: comments )
+# Get the accounts which burn EVD.
+# Also, all issued EVD in side-chain can find here too.
+cleos get table eoslocktoken eoslocktoken depositss
 
 ```
 
-25 - 50: 10;
+Note: One account can only endorse for one side-chain. And must write correct chain id at the first time. It can not change. Transfer to eoslocktoken again will only increase the amount of EVD burned.
 
-11 - 24: 20;
-
-5 - 10: 30;
-
-2 - 4: (9 - limit) * 10;
-
-1: 100;
-
-Other: 1;
+<div id="hash"></div>
+8, Put "#HASH#" in front of memo to open a hash time lock transfer. It will not succeed until someone reveal the password which can calculate into checksum of hash. If timeout, anyone can rollback it.
 
 ```
-
-
-### Transfer with HASH LIMIT
-
-Example:
-
-```
-
+# account1 transfer account2 10 EVD with a hash lock of 1 day.
 cleos push action eoslocktoken transfer '{"from":"account1", "to":"account2","quantity":"10.0000 EVD","memo":"#HASH#2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824,86400"}' -p account1
 
-# This command do not have privilege limit, anyone can confirm
-cleos push action eoslocktoken confirm '{"from":"account1", "to":"account2","key":"hello,world","executer":"account3"}' -p account3
+# account3 reveal the key and resolve the transfer (Anyone can reveal, include account1 or account2)
+cleos push action eoslocktoken confirm '{"from":"account1", "to":"account2","key":"hello,world"}' -p account3
+
+# Or timeout, account3 cancel it (Anyone can cancel)
+cleos push action eoslocktoken confirm '{"from":"account1", "to":"account2","key":""}' -p account3
+
+```
 
 
+### Weight for limitation
+
+When a user set its transfer limitation, its token can not transfer completely to another account. So it get more weight in vote in discuss contract. The weight as the following:
+ ( Code is in [comment contract](../comments/README.md) )
+
+Limit weight:
+
+- When Limit is 11 - 50, multiply by 5 * 100 / Limit;
+
+- When Limit is 1 - 10, multiply by 10 * 100 / Limit;
+
+- Other: No change;
+
+Example: when transfer limit is 1% per month, its comment will multiply by 1000.
+
+
+#### Check Status
+
+There are five tables in contract: lockss， timelockss, depositss, hashlockss, hashss, should check as the following:
+
+```
+cleos get table eoslocktoken account1 lockss
+
+cleos get table eoslocktoken account1 timelockss
+
+# This will not include locked token by another account
+cleos get currency balance eoslocktoken account1
+
+# Locked token (May need -L and/or -U)
+cleos get table eoslocktoken eoslocktoken lockss
+
+# Check burned token for side-chain (May need -L and/or -U)
+cleos get table eoslocktoken eoslocktoken depositss
 ```
 
 
-### ARRIVAL OF DELAY TRANSFER
 
-A delay transfer can not arrive automatically. The owner of account must run a transfer to let it appear. Like:
 
-```
-cleos push action eoslocktoken transfer  '{"from":"account2", "to":"account2","quantity":"0.0000 EVD","memo":""}' -p account2
-```
+#### EVD Distribution
 
+[EVD distribution](https://github.com/EOSVR/EOSVR/blob/master/evd_distribute.md)
 

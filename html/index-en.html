@@ -26,7 +26,7 @@
 				<div class="sousu">
 						<p><img src="images/fdj.png"></p>
 
-						<input type="text" name="" id="input1" value="" placeholder="Please input EOS Chain Account Name" />
+						<input type="text" name="" id="input1" value="" placeholder="Please input EOS Chain Account Name, such as: [Name]@[Sidechain Linker Name]" />
 						<input type="submit" name="" id="btn" value="Search" onclick="clickSearch()" />
 				</div>
 			</div>
@@ -44,8 +44,7 @@
 				</div>
 				<div class="main1_right">
 					<div class="tx">
-						<!--img id="portrait" src="images/tx.jpg"-->
-						<img id="portrait" src="" />
+						<img id="portrait" src="" onclick="clickportrait()" />
 					</div>
 					<br/>
 					<div class="main1_right2">
@@ -97,9 +96,10 @@
                 + '<br/>Example: 0.01 EVD for account creation fee, and 0.01 EVD for transfer fee.'
                 + '<br/><br/>After confirm a transfer created in side-chain, can confirm it in side-chain by:'
                 + '<br />cleos push action eoslocktoken confirm  \'{"from":"eoslinker111", "to":"newaccount11","key":"hello", "executer":"newaccount11"}\' -p newaccount11'
+                + '<br /><br />More info: <a href="https://github.com/EOSVR/EOSVR/blob/master/sidechain.md" >https://github.com/EOSVR/EOSVR/blob/master/sidechain.md</a>';
               ;
             } else {
-              more.innerHTML = 'Commands:<br />'
+              var html1 = 'Commands:<br />'
                 + 'Transfer:  <br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
                 + current_id + '","quantity":"1.0000 EVD","memo":""}\' -p account1' + '<br/>'
                 + 'Lock:  <br />cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
@@ -109,6 +109,18 @@
                 + 'Change portrait: <br />cleos push action evrportraits comment \'{"from":"'
                 + current_id + '", "to":"' + current_id + '", "memo":"iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO0TXL0Y4OHwAAAABJRU5ErkJggg=="}\' -p ' + current_id + '<br/>'
                 + 'In memo, there is base64 string of a jpg or png image. If image is big, it will take some RAM';
+
+              if (current_linker) {
+                html1 += '<br/><br />Transfer across chain :<br/>'
+                  + 'To this account:<br/>cleos push action eoslocktoken transfer \'{"from":"account1", "to":"'
+                  + current_linker + '","quantity":"0.1000 EVD","memo":"#HASH#2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824,86400,'
+                  + current_id + '"}\' -p account1<br/>'
+                  + 'From this account to account1 in EOS main chain：<br/>cleos push action eoslocktoken transfer \'{"from":"' + current_id + '", "to":"'
+                  + current_linker + '","quantity":"0.1000 EVD","memo":"#HASH#2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824,86400,account1"}\' -p '
+                  + current_id + '<br/>';
+              }
+
+              more.innerHTML = html1;
             }
 		};
 
@@ -120,6 +132,7 @@
 		  if (b.value) {
 		    more.innerText = "";
             changeId(b.value, name1, limit_status, desc, evd, portrait, user_limit_strs, eosserver);
+            click1();
           } else {
 		    more.innerHTML = "Can input \"EOS AccountName\" or \"AccountName@Linker\" to view, example: "
               + "<br/>eoslinker111"
@@ -156,6 +169,14 @@
 			more.innerHTML= h;
 		};
 
+        var clickportrait = function () {
+          more.innerHTML = 'User can set its portrait. Example:'
+            + '<br />cleos push action evrportraits comment \'{"from":"'
+            + current_id + '", "to":"' + current_id + '", "memo":"iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO0TXL0Y4OHwAAAABJRU5ErkJggg=="}\' -p ' + current_id + '<br/>'
+            + 'In memo, there is base64 string of a jpg or png image. If image is big, it will take some RAM';
+        };
+
+
         var onKeyDown = function() {
           if (window.event.keyCode === 13) {
             clickSearch();
@@ -163,9 +184,10 @@
         }
 
         var ind = window.location.href.indexOf('id=');
-        var id = ind > 0 ? window.location.href.substring(ind + 3).split('#')[0] : 'eoslinker111';
+        var id = ind > 0 ? window.location.href.substring(ind + 3).split('#')[0] : 'index_1';
 
         changeId(id, name1, limit_status, desc, evd, portrait, user_limit_strs, eosserver);
+        click1();
 
 
 	</script>
