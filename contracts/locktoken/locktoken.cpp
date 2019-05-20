@@ -308,7 +308,10 @@ void token::transfer( account_name from,
     }
 
     if (lock_amount != 0) {
+        print(".1");
         auto changed = change_lock( from, to, lock_amount, memo );
+
+        print(".2");
 
         if (changed < 0) {
             sub_balance( from, asset(-changed, MY_TOKEN_SYMBOL) );
@@ -372,10 +375,10 @@ void token::save_deposit( account_name from, asset quantity, string memo, accoun
     auto c = table1.find(from);
 
     if ( c == table1.end())  {
-        eosio_assert(memo.length() < 64 || quantity.amount >= MIN_DEPOSIT, "At least burn 1000 EVD" );
+        eosio_assert(memo.length() != 64 || quantity.amount >= MIN_DEPOSIT, "At least burn 1000 EVD for chain id" );
 
         table1.emplace( ram_payer, [&]( auto& a ){
-            a.to = from;
+            a.from = from;
             a.quantity = quantity.amount;
             a.memo = memo;
         });
@@ -404,9 +407,9 @@ int64_t token::confirm_lock( account_name from, account_name to ) {
 //      and give 90% token of locked to account "to".
 // The lock will be removed.
 int64_t token::remove_lock_from( account_name from, account_name to ) {
-    lockaccountTable locker(_self, from);
+    lockaccountTable locker(_self, to);
 
-    auto record = locker.find( to );
+    auto record = locker.find( from );
     eosio_assert( record != locker.end(), "Must have a lock");
 
     auto old = record->quantity;
@@ -429,23 +432,25 @@ int64_t token::change_lock( account_name from, account_name to, int64_t amount, 
 }
 
 int64_t token::change_lock_from( account_name from, account_name to, int64_t amount, string memo ) {
-    lockaccountTable locker(_self, from);
+    lockaccountTable locker(_self, to);
 
     createTableIfEmpty(to, from, from);
 
-    auto record = locker.find( to );
+    auto record = locker.find( from );
     if (record == locker.end()) {
+
         int64_t used = std::abs(amount);
         eosio_assert( amount < 0, "Lock data must < 0" );  // DO NOT ALLOW single Unlock now !
 
         locker.emplace( from, [&]( auto& a ){
-            a.to = to;
+            a.from = from;
             a.quantity = amount;
             a.memo = memo;
         });
 
         return -used;
     } else {
+
         auto old = record->quantity;
         auto afterChange = old + amount;
         eosio_assert( afterChange <= 0, "Lock data must < 0" );  // DO NOT ALLOW single Unlock now !
@@ -454,7 +459,8 @@ int64_t token::change_lock_from( account_name from, account_name to, int64_t amo
             locker.erase(record);
             removeTableIfEmpty(to, from);
         } else {
-            locker.modify( record, 0, [&]( auto& a ) {
+
+            locker.modify( record, from, [&]( auto& a ) {
                 a.quantity = afterChange;
                 a.memo = memo;
             });
@@ -467,12 +473,14 @@ int64_t token::change_lock_from( account_name from, account_name to, int64_t amo
 void token::change_lock_main( account_name from, account_name to, int64_t amount ) {
     lockaccountTable locker_main(_self, _self);
 
+    // In main row, to is from.
+
     auto record = locker_main.find( to );
     if (record == locker_main.end()) {
         eosio_assert( amount != 0, "New lock data must != 0" );
 
         locker_main.emplace( from, [&]( auto& a ){
-            a.to = to;
+            a.from = to;
             a.quantity = amount;
         });
     } else {
@@ -556,21 +564,21 @@ void token::add_balance( account_name owner, asset value, account_name ram_payer
 void token::createTableIfEmpty( uint64_t from, uint64_t to, uint64_t ram_payer ) {
     if (from == to) return;
 
-    lockaccountTable table2( _self, from);
+    lockaccountTable table2( _self, to);
 
-    auto c2 = table2.find(to);
+    auto c2 = table2.find(from);
     if (c2 == table2.end()) {
       table2.emplace( ram_payer, [&]( auto& s ) {
-          s.to = to;
+          s.from = from;
           s.quantity = 0;
       });
     }
 }
 
 uint64_t token::removeTableIfEmpty( uint64_t from, uint64_t to ) {
-   lockaccountTable table2( _self, from);
+   lockaccountTable table2( _self, to);
 
-   auto c2 = table2.find(to);
+   auto c2 = table2.find(from);
    if (c2 != table2.end() && c2->quantity == 0 && c2->memo.length() == 0) {
       table2.erase(c2);
    }

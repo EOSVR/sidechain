@@ -55,7 +55,7 @@
       "name": "lockaccounts",
       "base": "",
       "fields": [
-        {"name":"to", "type":"account_name"},
+        {"name":"from", "type":"account_name"},
         {"name":"quantity", "type":"int64"},
         {"name":"memo", "type":"string"}
       ]
@@ -130,7 +130,7 @@
       "name": "lockss",
       "type": "lockaccounts",
       "index_type": "i64",
-      "key_names" : ["to"],
+      "key_names" : ["from"],
       "key_types" : ["uint64"]
     },{
       "name": "hashlockss",
@@ -142,7 +142,7 @@
       "name": "depositss",
       "type": "lockaccounts",
       "index_type": "i64",
-      "key_names" : ["to"],
+      "key_names" : ["from"],
       "key_types" : ["uint64"]
     },{
       "name": "hashss",

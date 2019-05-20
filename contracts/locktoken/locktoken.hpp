@@ -72,12 +72,12 @@ namespace eosio {
          };
 
          struct lockaccounts {
-            account_name to;
+            account_name from;
             int64_t quantity;
             string memo;
            
-            uint64_t primary_key()const { return to; }
-            uint64_t second_key()const { return INT64_MAX - quantity; }
+            uint64_t primary_key()const { return from; }
+            uint64_t second_key()const { return INT64_MAX - std::abs(quantity); }
          };
 
          struct hashlocks {
@@ -107,7 +107,9 @@ namespace eosio {
          typedef eosio::multi_index<N(accounts), account> accounts;
          typedef eosio::multi_index<N(stat), currency_stats> stats;
 
-         typedef eosio::multi_index<N(lockss), lockaccounts> lockaccountTable;
+         typedef eosio::multi_index<N(lockss), lockaccounts
+            , indexed_by< N( byquantity ), const_mem_fun< lockaccounts, uint64_t, &lockaccounts::second_key> >
+            > lockaccountTable;
 
          typedef eosio::multi_index<
             N(hashlockss), hashlocks,

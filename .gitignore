@@ -12,3 +12,5 @@ backup
 
 src.data
 dest.data
+
+install.sh

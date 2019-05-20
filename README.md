@@ -2,6 +2,8 @@
 
 [中文](README-cn.md)
 
+[Introduction](https://github.com/EOSVR/EOSVR/blob/master/sidechain.md)
+
 ### Precondition
 
 To create a sidechain, need the following precondition:
@@ -33,6 +35,7 @@ When others want to know if sidechain is trustworthy, they can simply run the fo
     cleos get table eoslocktoken eoslocktoken depositss
     ```
 
+Note: Linker account can NOT be a string with only numbers, example: 111111111111.
 
 ### Setup steps
   

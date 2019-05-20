@@ -2,6 +2,8 @@
 
 [English](README.md)
 
+[介绍](https://github.com/EOSVR/EOSVR/blob/master/sidechain-cn.md)
+
 ### 前提条件
 
 为了搭建一条EOS侧链，需要如下前提条件：
@@ -35,6 +37,7 @@
     cleos get table eoslocktoken eoslocktoken depositss
     ```
 
+注意: 连接者帐号不能全部由数字组成，比如： 111111111111。
 
 
 ### 服务搭建

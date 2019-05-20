@@ -51,9 +51,9 @@ int64_t getWeight(uint64_t owner) {
 
 void doWithDraw(uint64_t _self, account_name from, account_name to, bool onlySupport) {
 
-    commentTable table1( _self, from);
+    commentTable table1( _self, to);
 
-    auto current = table1.find(to);
+    auto current = table1.find(from);
 
     if (onlySupport) {
         if (current == table1.end() || current->deposit <= 0)
@@ -62,36 +62,22 @@ void doWithDraw(uint64_t _self, account_name from, account_name to, bool onlySup
 
     eosio_assert(current != table1.end(), "The account does not exist!");
 
-    eosio_assert(current->deposit != 0, "The account does not have deposit!");
-
-    auto back = asset( current->deposit, TOKEN_SYMBOL );
     auto oldAmount = current->deposit;
     auto oldWeight = current->weight;
     if (oldWeight < 1 || oldWeight > MAX_WEIGHT) oldWeight = 1;
 
-    if (current->deposit < 0) {
-      back.amount = -current->deposit;
+    auto back = asset( oldAmount, TOKEN_SYMBOL );
+    if (oldAmount < 0) {
+      back.amount = -oldAmount;
     }
 
-    action{
-        permission_level{_self, N(active)},
-        ISSUER_ACCOUNT,
-        N(transfer),
-        token::transfer_args{
-            .from=_self, .to=from, .quantity=back, .memo="#TIME# 86400"}    // Withdraw take 1 day to arrive
-    }.send();
-
-    uint64_t remain_to = 1; // If table of "to" has data, 1: yes, 0: no.
-
-    if (current->memo.length() == 0) {
-      table1.erase(current); // When no comment, remove it
-
-      remain_to = removeTableIfEmpty(_self, to, from);
-    } else {
-      table1.modify(current, 0, [&]( auto& s ) {
+    table1.modify(current, 0, [&]( auto& s ) {
         s.deposit = 0;
-      });
-    }
+    });
+
+    removeTableIfEmpty(_self, to, from);
+
+    bool remain_to = hasDataInCommentTable(_self, to);
 
     // Remove oldAmount from MainTable
     gcommentTable table2(_self, _self);
@@ -100,7 +86,7 @@ void doWithDraw(uint64_t _self, account_name from, account_name to, bool onlySup
 
     string str = (name{from}).to_string();
 
-    if (remain_to == 0) {
+    if (!remain_to) {
       table2.erase(current2);
     } else {
       table2.modify(current2, 0, [&]( auto& s ) {
@@ -109,6 +95,16 @@ void doWithDraw(uint64_t _self, account_name from, account_name to, bool onlySup
 
         s.lastupdate = current_time();
       });
+    }
+
+    if (back.amount > 0) {
+        action{
+            permission_level{_self, N(active)},
+            ISSUER_ACCOUNT,
+            N(transfer),
+            token::transfer_args{
+                .from=_self, .to=from, .quantity=back, .memo="#TIME# 86400"}    // Withdraw take 1 day to arrive
+        }.send();
     }
 }
 
@@ -123,7 +119,7 @@ void dismissAction(uint64_t _self, const dismiss& dismiss) {
     auto t1 = table1.begin();
 
     while (t1 != table1.end()) {
-        auto from = t1->to;
+        auto from = t1->from;
         t1++;
 
         if (from) {
@@ -144,24 +140,26 @@ void commentAction(uint64_t _self, const comment& comment)
 
     eosio_assert(to != 0 && from != 0, "Must have account");
 
-    commentTable table1( _self, from);
+    commentTable table1( _self, to);
 
-    auto c = table1.find(to);
+    auto c = table1.find(from);
     if (c == table1.end()) {
-      table1.emplace( from, [&]( auto& s ) {
-          s.to = to;
+        table1.emplace( from, [&]( auto& s ) {
+          s.from = from;
           s.memo = memo;
           s.deposit = 0;
           s.weight = getWeight(from);
           s.lastupdate = current_time();
-      });
-    } else {
-      table1.modify( c, from, [&]( auto& s ) {
-          s.memo = memo;
-      });
-    }
+        });
 
-    createTableIfEmpty(_self, to, from);
+        createTableIfEmpty(_self, to, from);
+    } else {
+        table1.modify( c, from, [&]( auto& s ) {
+          s.memo = memo;
+        });
+
+        removeTableIfEmpty(_self, to, from);
+    }
 }
 
 // Withdraw the token that comment a user
@@ -210,12 +208,12 @@ void transferAction (uint64_t _self, uint64_t code) {
     }
 
     // Set comment table
-    commentTable table1( _self, data.from);
+    commentTable table1( _self, account);
     int64_t depositChanged = 0;
     int64_t depositDownChanged = 0;
     int64_t weight = 1;
 
-    auto c = table1.find(account);
+    auto c = table1.find(data.from);
     if (c == table1.end()) {
       eosio_assert(data.quantity.amount >= MIN_EVD,
         "Amount must be greater than MIN EVD because it takes RAM of contract to save it");
@@ -228,7 +226,7 @@ void transferAction (uint64_t _self, uint64_t code) {
 
       // RAM pay by contract.
       table1.emplace( _self, [&]( auto& s ) {
-          s.to = account;
+          s.from = data.from;
           s.deposit = deposit;
           s.weight = weight;
           s.lastupdate = current_time();
@@ -280,12 +278,12 @@ void transferAction (uint64_t _self, uint64_t code) {
 void createTableIfEmpty(uint64_t _self, uint64_t from, uint64_t to ) {
     if (from == to) return;
 
-    commentTable table2( _self, from);
+    commentTable table2( _self, to);
 
-    auto c2 = table2.find(to);
+    auto c2 = table2.find(from);
     if (c2 == table2.end()) {
       table2.emplace( _self, [&]( auto& s ) {
-          s.to = to;
+          s.from = from;
           s.deposit = 0;
           s.lastupdate = current_time();
           s.weight = getWeight(from);
@@ -293,17 +291,64 @@ void createTableIfEmpty(uint64_t _self, uint64_t from, uint64_t to ) {
     }
 }
 
-uint64_t removeTableIfEmpty(uint64_t _self, uint64_t from, uint64_t to ) {
-   commentTable table2( _self, from);
+void removeTableIfEmpty(uint64_t _self, uint64_t from, uint64_t to ) {
+    commentTable table1( _self, from);
+    auto c1 = table1.find(to);
 
-   auto c2 = table2.find(to);
-   if (c2 != table2.end() && c2->deposit == 0 && c2->memo.length() == 0) {
-      table2.erase(c2);
-   }
+    commentTable table2( _self, to);
+    auto c2 = table2.find(from);
 
-   return (table2.begin() == table2.end()) ? 0 : 1;
+    if (c1 != table1.end() && c2 != table2.end()) {
+        if (c1->deposit == 0 && c1->memo.length() == 0
+            && c2->deposit == 0 && c2->memo.length() == 0) {
+
+            table1.erase(c1);
+
+            if (to != from) {
+                table2.erase(c2);
+            }
+        }
+    }
 }
 
+bool hasDataInCommentTable(uint64_t _self, uint64_t to) {
+    commentTable table2( _self, to);
+    return table2.begin() != table2.end();
+}
+
+void clearOne(uint64_t _self, uint64_t to) {
+    commentTable table1( _self, to);
+    do {
+        auto s = table1.begin();
+        if (s == table1.end()) break;
+
+        table1.erase(s);
+    } while(true);
+}
+
+// ===== Debug only =====
+// Clear all comments to an account, need auth of _self
+void clearAction(uint64_t _self, const withdraw& dat) {
+    account_name from = dat.from;
+    account_name to = dat.to;
+
+    require_auth(_self);
+
+    clearOne(_self, from);
+    clearOne(_self, to);
+
+    if (_self == from) {
+        gcommentTable table3(_self, _self);
+        do {
+            auto s3 = table3.begin();
+            if (s3 == table3.end()) return;
+
+            clearOne(_self, s3->account);
+
+            table3.erase(s3);
+        } while(true);
+    }
+}
 
 void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
   if (code == ISSUER_ACCOUNT && action == N(transfer)) {
@@ -317,6 +362,8 @@ void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
     commentAction(receiver, eosio::unpack_action_data<comment>());
   } else if (action == N(dismiss)) {
     dismissAction(receiver, eosio::unpack_action_data<dismiss>());
+  } else if (action == N(clear)) {
+	clearAction(receiver, eosio::unpack_action_data<withdraw>());
   }
 }
 

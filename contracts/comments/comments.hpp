@@ -12,7 +12,7 @@ using std::string;
 
 
 struct comments {
-    account_name    to;
+    account_name    from;
 
     int64_t    deposit;
     string     memo;
@@ -20,12 +20,16 @@ struct comments {
     int64_t    weight;  // [1..100], default: 1.  gcomments.total += deposit * weight;
     int64_t    lastupdate; // Last time use EVD to support or against someone
 
-    account_name primary_key()const { return to; }
+    account_name primary_key()const { return from; }
 
-    EOSLIB_SERIALIZE( comments, (to)(deposit)(memo)(weight)(lastupdate) );
+    uint64_t get_total() const { return INT64_MAX - std::abs(deposit) * weight; } // Sorted by deposit * weight
+
+    EOSLIB_SERIALIZE( comments, (from)(deposit)(memo)(weight)(lastupdate) );
 };
 
-typedef eosio::multi_index<N(commentss), comments> commentTable;
+typedef eosio::multi_index<N(commentss), comments,
+    indexed_by< N( bytotal ), const_mem_fun< comments, uint64_t, &comments::get_total> >
+    > commentTable;
 
 struct gcomments {
     account_name account;
