@@ -5,6 +5,9 @@
 #include <string>
 #include <eosiolib/asset.hpp>
 
+#define N(_A_) "_A_"_n.value
+#define account_name uint64_t
+
 using namespace eosio;
 
 using std::string;
@@ -15,8 +18,8 @@ class currency {
   public:
      struct transfer
      {
-        account_name from;
-        account_name to;
+        uint64_t from;
+        uint64_t to;
         asset        quantity;
         string       memo;
 

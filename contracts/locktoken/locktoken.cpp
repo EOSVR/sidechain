@@ -1,6 +1,6 @@
 #include "locktoken.hpp"
 
-const auto MY_TOKEN_SYMBOL = string_to_symbol(4, "EVD");
+const auto MY_TOKEN_SYMBOL = symbol(symbol_code("EVD"), 4);
 
 const uint64_t useconds_per_sec = 1000000;
 
@@ -23,7 +23,7 @@ namespace eosio {
 // === Related functions ===
 
 void printSha256(string txt) {
-    checksum256 hash;
+    capi_checksum256 hash;
 
     sha256( txt.c_str(), txt.size(), &hash );
 
@@ -52,6 +52,15 @@ uint8_t from_hex(char c) {
     return 0;
 }
 
+bool isEqual(capi_checksum256 c1, capi_checksum256 c2) {
+    for(int i = 0 ; i < 32; i++) {
+        if (c1.hash[i] != c2.hash[i]) return false;
+    }
+
+    return true;
+}
+
+
 size_t from_hex(const std::string& hex_str, char* out_data, size_t out_data_len) {
     auto i = hex_str.begin();
     uint8_t* out_pos = (uint8_t*)out_data;
@@ -68,31 +77,29 @@ size_t from_hex(const std::string& hex_str, char* out_data, size_t out_data_len)
     return out_pos - (uint8_t*)out_data;
 }
 
-checksum256 hex_to_sha256(const std::string& hex_str) {
+capi_checksum256 hex_to_sha256(const std::string& hex_str) {
     eosio_assert(hex_str.length() == 64, "invalid sha256");
-    checksum256 checksum;
-    from_hex(hex_str, (char*)checksum.hash, sizeof(checksum.hash));
+    capi_checksum256 checksum;
+    from_hex(hex_str, (char*)(checksum.hash), sizeof(checksum.hash));
     return checksum;
 }
 
 // =========================
 
 
-void token::create( account_name issuer,
-                    asset        maximum_supply )
+void token::create( name   issuer,
+                    asset  maximum_supply )
 {
     require_auth( _self );
 
     auto sym = maximum_supply.symbol;
-    eosio_assert( sym.is_valid(), "invalid symbol name" );
-    eosio_assert( sym ==  MY_TOKEN_SYMBOL, "invalid symbol name" );
+    check( sym.is_valid(), "invalid symbol name" );
+    check( maximum_supply.is_valid(), "invalid supply");
+    check( maximum_supply.amount > 0, "max-supply must be positive");
 
-    eosio_assert( maximum_supply.is_valid(), "invalid supply");
-    eosio_assert( maximum_supply.amount > 0, "max-supply must be positive");
-
-    stats statstable( _self, sym.name() );
-    auto existing = statstable.find( sym.name() );
-    eosio_assert( existing == statstable.end(), "token with symbol already exists" );
+    stats statstable( _self, sym.code().raw() );
+    auto existing = statstable.find( sym.code().raw() );
+    check( existing == statstable.end(), "token with symbol already exists" );
 
     statstable.emplace( _self, [&]( auto& s ) {
        s.supply.symbol = maximum_supply.symbol;
@@ -102,42 +109,42 @@ void token::create( account_name issuer,
 }
 
 
-void token::issue( account_name to, asset quantity, string memo )
+void token::issue( name to, asset quantity, string memo )
 {
     auto sym = quantity.symbol;
-    eosio_assert( sym.is_valid(), "invalid symbol name!" );
-    eosio_assert( memo.size() <= 256, "memo has more than 256 bytes" );
+    check( sym.is_valid(), "invalid symbol name" );
+    check( memo.size() <= 256, "memo has more than 256 bytes" );
 
-    auto sym_name = sym.name();
-    stats statstable( _self, sym_name );
-    auto existing = statstable.find( sym_name );
-    eosio_assert( existing != statstable.end(), "token with symbol does not exist, create token before issue" );
+    stats statstable( _self, sym.code().raw() );
+    auto existing = statstable.find( sym.code().raw() );
+    check( existing != statstable.end(), "token with symbol does not exist, create token before issue" );
     const auto& st = *existing;
 
     require_auth( st.issuer );
-    eosio_assert( quantity.is_valid(), "invalid quantity" );
-    eosio_assert( quantity.amount > 0, "must issue positive quantity" );
+    check( quantity.is_valid(), "invalid quantity" );
+    check( quantity.amount > 0, "must issue positive quantity" );
 
-    eosio_assert( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
-    eosio_assert( quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
+    check( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
+    check( quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
 
-    statstable.modify( st, 0, [&]( auto& s ) {
+    statstable.modify( st, same_payer, [&]( auto& s ) {
        s.supply += quantity;
     });
 
     add_balance( st.issuer, quantity, st.issuer );
 
     if( to != st.issuer ) {
-       SEND_INLINE_ACTION( *this, transfer, {st.issuer,N(active)}, {st.issuer, to, quantity, memo} );
+      SEND_INLINE_ACTION( *this, transfer, { {st.issuer, "active"_n} },
+	       {st.issuer, to, quantity, memo} );
     }
 
     save_deposit( to, quantity, "Issued", _self);
 }
 
-void token::set_limit(account_name owner, int64_t new_limit) {
+void token::set_limit(name owner, int64_t new_limit) {
     eosio_assert( new_limit > 0 && new_limit <= max_limit, "Limit must be 1-50" );
 
-    timelockTable timelocks(_self, owner);
+    timelockTable timelocks(_self, owner.value);
     auto limit0 = timelocks.find(0);
 
     if (limit0 == timelocks.end()) {
@@ -149,14 +156,14 @@ void token::set_limit(account_name owner, int64_t new_limit) {
     } else {
         eosio_assert( new_limit < limit0->quantity, "Limit can only set to smaller than old");
 
-        timelocks.modify( limit0, 0, [&]( auto& a ) {
+        timelocks.modify( limit0, same_payer, [&]( auto& a ) {
             a.quantity = new_limit; // Set new limit
         });
     }
 }
 
-void token::add_day_limit(account_name from, int64_t amount, int64_t remain) {
-    timelockTable timelocks(_self, from);
+void token::add_day_limit(name from, int64_t amount, int64_t remain) {
+    timelockTable timelocks(_self, from.value);
 
     // Use timelocks.find(0) as limitation
     // limit0->from is current time limit. It must lower than (now + one month)
@@ -186,7 +193,7 @@ void token::add_day_limit(account_name from, int64_t amount, int64_t remain) {
 
             eosio_assert (time1 <= time_limit, "Exceed limitation");
 
-            timelocks.modify( limit0, 0, [&]( auto& a ) {
+            timelocks.modify( limit0, same_payer, [&]( auto& a ) {
                 a.from = time1; // currentlimit
             });
 
@@ -195,9 +202,9 @@ void token::add_day_limit(account_name from, int64_t amount, int64_t remain) {
 
 }
 
-void token::refresh_tokens(account_name owner) {
+void token::refresh_tokens(name owner) {
 
-    timelockTable timelocks(_self, owner);
+    timelockTable timelocks(_self, owner.value);
 
     auto timeout = current_time();
 
@@ -247,10 +254,10 @@ void token::add_hash_record(account_name from, account_name to, asset quantity, 
 
     eosio_assert( timeout >= 60 && timeout <= 86400 * 30, "The timeout of a hash lock must between 60(1 minute) - 86400*30(30 days)" );
 
-    hashlockTable hashTable(_self, _self);
+    hashlockTable hashTable(_self, _self.value);
 
     hashTable.emplace( from, [&]( auto& a ){
-        a.mix = from ^ to;
+        a.mix = from.value ^ to.value;
         a.from = from;
         a.to = to;
         a.quantity = quantity.amount;
@@ -261,8 +268,8 @@ void token::add_hash_record(account_name from, account_name to, asset quantity, 
 }
 
 
-void token::transfer( account_name from,
-                      account_name to,
+void token::transfer( name from,
+                      name to,
                       asset        quantity,
                       string       memo )
 {
@@ -271,11 +278,11 @@ void token::transfer( account_name from,
     //eosio_assert( from != to, "cannot transfer to self" );
 
     require_auth( from );
-    eosio_assert( is_account( to ), "to account does not exist");
+    check( is_account( to ), "to account does not exist");
 
-    auto sym = quantity.symbol.name();
-    stats statstable( _self, sym );
-    const auto& st = statstable.get( sym );
+    auto sym = quantity.symbol.code();
+    stats statstable( _self, sym.raw() );
+    const auto& st = statstable.get( sym.raw() );
 
     require_recipient( from );
     require_recipient( to );
@@ -293,9 +300,9 @@ void token::transfer( account_name from,
     }
 
 
-    eosio_assert( quantity.is_valid(), "invalid quantity" );
-    eosio_assert( quantity.amount > 0, "must transfer positive quantity" );
-    eosio_assert( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
+    check( quantity.is_valid(), "invalid quantity" );
+    check( quantity.amount > 0, "must transfer positive quantity" );
+    check( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
 
     eosio_assert( quantity.symbol == MY_TOKEN_SYMBOL, "invalid symbol" );
 
@@ -333,7 +340,8 @@ void token::transfer( account_name from,
         amount_changed -= amount_changed / confirm_receive_percent;
 
         // It calls transfer and still is limited by limitation.
-        SEND_INLINE_ACTION( *this, transfer, {from, N(active)}, {from, to, asset(amount_changed, MY_TOKEN_SYMBOL), ""} );
+        SEND_INLINE_ACTION( *this, transfer, {{from, "active"_n}}, 
+                           {from, to, asset(amount_changed, MY_TOKEN_SYMBOL), ""} );
         return;
     }
 
@@ -370,9 +378,9 @@ void token::transfer( account_name from,
 }
 
 void token::save_deposit( account_name from, asset quantity, string memo, account_name ram_payer) {
-    depositTable table1(_self, _self);
+    depositTable table1(_self, _self.value);
 
-    auto c = table1.find(from);
+    auto c = table1.find(from.value);
 
     if ( c == table1.end())  {
         eosio_assert(memo.length() != 64 || quantity.amount >= MIN_DEPOSIT, "At least burn 1000 EVD for chain id" );
@@ -385,13 +393,13 @@ void token::save_deposit( account_name from, asset quantity, string memo, accoun
     } else {
         eosio_assert( c->memo == memo, "memo must be same");
 
-        table1.modify( c, 0, [&]( auto& a ) {
+        table1.modify( c, same_payer, [&]( auto& a ) {
             a.quantity += quantity.amount;
         });
     }
 }
 
-int64_t token::confirm_lock( account_name from, account_name to ) {
+int64_t token::confirm_lock( name from, name to ) {
     int64_t amount_changed = remove_lock_from(to, from);
 
     change_lock_main(to, from, amount_changed);
@@ -406,10 +414,10 @@ int64_t token::confirm_lock( account_name from, account_name to ) {
 // Account "from" confirm the lock message from account "to",
 //      and give 90% token of locked to account "to".
 // The lock will be removed.
-int64_t token::remove_lock_from( account_name from, account_name to ) {
-    lockaccountTable locker(_self, to);
+int64_t token::remove_lock_from( name from, name to ) {
+    lockaccountTable locker(_self, to.value);
 
-    auto record = locker.find( from );
+    auto record = locker.find( from.value );
     eosio_assert( record != locker.end(), "Must have a lock");
 
     auto old = record->quantity;
@@ -417,7 +425,7 @@ int64_t token::remove_lock_from( account_name from, account_name to ) {
 
     locker.erase(record);
 
-    removeTableIfEmpty(to, from);
+    removeTableIfEmpty(to.value, from.value);
 
     return std::abs(old);
 }
@@ -431,12 +439,12 @@ int64_t token::change_lock( account_name from, account_name to, int64_t amount, 
     return change_lock_from(from, to, amount, memo);
 }
 
-int64_t token::change_lock_from( account_name from, account_name to, int64_t amount, string memo ) {
-    lockaccountTable locker(_self, to);
+int64_t token::change_lock_from( name from, name to, int64_t amount, string memo ) {
+    lockaccountTable locker(_self, to.value);
 
     createTableIfEmpty(to, from, from);
 
-    auto record = locker.find( from );
+    auto record = locker.find( from.value );
     if (record == locker.end()) {
 
         int64_t used = std::abs(amount);
@@ -457,7 +465,7 @@ int64_t token::change_lock_from( account_name from, account_name to, int64_t amo
 
         if ( afterChange == 0 ) {
             locker.erase(record);
-            removeTableIfEmpty(to, from);
+            removeTableIfEmpty(to.value, from.value);
         } else {
 
             locker.modify( record, from, [&]( auto& a ) {
@@ -470,12 +478,12 @@ int64_t token::change_lock_from( account_name from, account_name to, int64_t amo
     }
 }
 
-void token::change_lock_main( account_name from, account_name to, int64_t amount ) {
-    lockaccountTable locker_main(_self, _self);
+void token::change_lock_main( name from, name to, int64_t amount ) {
+    lockaccountTable locker_main(_self, _self.value);
 
     // In main row, to is from.
 
-    auto record = locker_main.find( to );
+    auto record = locker_main.find( to.value );
     if (record == locker_main.end()) {
         eosio_assert( amount != 0, "New lock data must != 0" );
 
@@ -488,15 +496,15 @@ void token::change_lock_main( account_name from, account_name to, int64_t amount
         if (afterChange == 0) {
             locker_main.erase(record);
         } else {
-            locker_main.modify( record, 0, [&]( auto& a ) {
+            locker_main.modify( record, same_payer, [&]( auto& a ) {
                 a.quantity = afterChange;
               });
         }
     }
 }
 
-void token::add_time_lock( account_name owner, int64_t amount, int64_t delay, account_name ram_payer ) {
-    timelockTable timelocks(_self, owner);
+void token::add_time_lock( name owner, int64_t amount, int64_t delay, name ram_payer ) {
+    timelockTable timelocks(_self, owner.value);
 
     auto timeout = current_time() + delay * useconds_per_sec;
     auto to = timelocks.find( timeout );
@@ -507,24 +515,24 @@ void token::add_time_lock( account_name owner, int64_t amount, int64_t delay, ac
         a.quantity = amount;
       });
     } else {
-      timelocks.modify( to, 0, [&]( auto& a ) {
+      timelocks.modify( to, same_payer, [&]( auto& a ) {
         a.quantity += amount;
       });
     }
 }
 
-int64_t token::sub_balance( account_name owner, asset value ) {
-   accounts from_acnts( _self, owner );
-   lockaccountTable locked(_self, _self);
+int64_t token::sub_balance( name owner, asset value ) {
+   accounts from_acnts( _self, owner.value );
+   lockaccountTable locked(_self, _self.value);
 
    int64_t lockingValue = 0;
-   auto locking = locked.find(owner);
+   auto locking = locked.find(owner.value);
    if (locking != locked.end()) {
         lockingValue = locking->quantity;
         if (lockingValue > 0) lockingValue = 0;
    }
 
-   const auto& from = from_acnts.get( value.symbol.name(), "no balance object found" );
+   const auto& from = from_acnts.get( value.symbol.code().raw(), "no balance object found" );
    eosio_assert( from.balance.amount + lockingValue >= value.amount, "overdrawn balance" );
 
    int64_t remain = from.balance.amount - value.amount;
@@ -548,25 +556,25 @@ void token::add_balance2( account_name owner, int64_t value, account_name ram_pa
 
 void token::add_balance( account_name owner, asset value, account_name ram_payer )
 {
-   accounts to_acnts( _self, owner );
-   auto to = to_acnts.find( value.symbol.name() );
+   accounts to_acnts( _self, owner.value );
+   auto to = to_acnts.find( value.symbol.code().raw() );
    if( to == to_acnts.end() ) {
       to_acnts.emplace( ram_payer, [&]( auto& a ){
         a.balance = value;
       });
    } else {
-      to_acnts.modify( to, 0, [&]( auto& a ) {
+      to_acnts.modify( to, same_payer, [&]( auto& a ) {
         a.balance += value;
       });
    }
 }
 
-void token::createTableIfEmpty( uint64_t from, uint64_t to, uint64_t ram_payer ) {
-    if (from == to) return;
+void token::createTableIfEmpty( name from, name to, name ram_payer ) {
+    if (from.value == to.value) return;
 
-    lockaccountTable table2( _self, to);
+    lockaccountTable table2( _self, to.value);
 
-    auto c2 = table2.find(from);
+    auto c2 = table2.find(from.value);
     if (c2 == table2.end()) {
       table2.emplace( ram_payer, [&]( auto& s ) {
           s.from = from;
@@ -587,15 +595,15 @@ uint64_t token::removeTableIfEmpty( uint64_t from, uint64_t to ) {
 }
 
 // Confirm a hash lock
-void token::confirm( account_name from,
-                      account_name to,
+void token::confirm( name from,
+                      name to,
                       string       key,
-                      account_name executer) {
+                      name executer) {
     require_auth(executer);
 
-    hashlockTable hashTable(_self, _self);
+    hashlockTable hashTable(_self, _self.value);
 
-    auto c1 = hashTable.find(from ^ to);
+    auto c1 = hashTable.find(from.value ^ to.value);
 
     eosio_assert( c1 != hashTable.end(), "Can not find the hash lock");
 
@@ -603,7 +611,7 @@ void token::confirm( account_name from,
 
 
     // ====== Hash - Key List =====
-    hashListTable listTable(_self, _self);
+    hashListTable listTable(_self, _self.value);
 
     // Remove the old hash key
     auto s = listTable.begin();
@@ -618,14 +626,16 @@ void token::confirm( account_name from,
 
     if (current_time() > c1->timeout) {
         // Cancel the transfer
-        SEND_INLINE_ACTION( *this, transfer, {_self, N(active)}, {_self, c1->from, asset(c1->quantity, MY_TOKEN_SYMBOL), "Cancel transfer"} );
+        SEND_INLINE_ACTION( *this, transfer, {{_self, "active"_n}}, 
+                           {_self, c1->from, asset(c1->quantity, MY_TOKEN_SYMBOL), "Cancel transfer"} );
     } else {
         // Valid key
         eosio_assert( key.length() > 0, "Invalid key");
         assert_sha256( key.c_str(), key.size(), &c1->hash );
 
         // Confirm the transfer
-        SEND_INLINE_ACTION( *this, transfer, {_self, N(active)}, {_self, c1->to, asset(c1->quantity, MY_TOKEN_SYMBOL), "Confirm transfer"} );
+        SEND_INLINE_ACTION( *this, transfer, {{_self, "active"_n}}, 
+                           {_self, c1->to, asset(c1->quantity, MY_TOKEN_SYMBOL), "Confirm transfer"} );
 
         // ==== ADD Hash - Key List
 
@@ -640,7 +650,7 @@ void token::confirm( account_name from,
         // Do not save default key: "hello" which is for quick transfer
         if (key != "hello") {
             auto last1 = listTable.rbegin(); // Do not save if same as last.
-            if (last1 == listTable.rend() || !(last1->hash == c1->hash)) {
+            if (last1 == listTable.rend() || !isEqual(last1->hash, c1->hash)) {
                 listTable.emplace( executer, [&]( auto& s1 ) {
                    s1.timeout = timeout;
                    s1.hash = c1->hash;
@@ -657,4 +667,4 @@ void token::confirm( account_name from,
 
 } /// namespace eosio
 
-EOSIO_ABI( eosio::token, (create)(issue)(transfer)(confirm) )
+EOSIO_DISPATCH( eosio::token, (create)(issue)(transfer)(confirm) )
