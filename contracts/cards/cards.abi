@@ -8,11 +8,13 @@
             {"name": "id", "type": "int64"},
             {"name": "creator", "type": "name"},
             {"name": "mark", "type": "int64"},
+            {"name": "max_supply", "type": "int64"},
             {"name": "total", "type": "int64"},
             {"name": "sell", "type": "int64"},
             {"name": "price", "type": "int64"},
             {"name": "lastupdate", "type": "int64"},
-            {"name": "content", "type": "string"}
+            {"name": "content", "type": "string"},
+            {"name": "rampayed", "type": "int64"}
             ]
         },
         {
