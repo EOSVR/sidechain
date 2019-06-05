@@ -34,15 +34,22 @@ struct impl {
 
         int64_t ct = current_time() / 1000;
 
-        if (id <= 0) {
-            id = ct;
+        if (id <= 0) id = ct;
+
+        // Change an old card
+        auto c = table1.find(id);
+
+        if (c == table1.end()) {
+            // ===== Create NEW CARD =====
+
+            // Can only create a card within 5 minutes
+            check(abs(ct - reg.id) < 300000, "Invalid card ID (More than 5 minutes)");
 
             auto total = reg.total;
+            check(total >= 0, "Can not remove non-exist card");
+
             int64_t max_supply = 0;
-            if (total <= 0)
-                total = 0;
-            else
-                max_supply = total;
+            if (total > 0) max_supply = total;
 
             auto sell = reg.sell;
             if (sell < total) sell = 0;
@@ -63,14 +70,11 @@ struct impl {
                 s.rampayed = 0;
             });
         } else {
-          // Change an old card
-          auto c = table1.find(reg.id);
-          eosio_assert(c != table1.end(), "Invalid card ID");
+            // ===== Change old Card =====
+            if (reg.total < 0) {
+                // Remove card
 
-          if (reg.total < 0) {
-              // Remove card
-
-              if (c->rampayed > 0) {
+                if (c->rampayed > 0) {
                   // Send back ram payed
                   action{
                           permission_level{name(_self), "active"_n},
@@ -79,52 +83,52 @@ struct impl {
                           currency::transfer{
                                   .from=_self, .to=from.value, .quantity=asset(c->rampayed, TOKEN_SYMBOL), .memo="Send back ram payed"}
                   }.send();
-              }
+                }
 
-              table1.erase(c);
-          } else {
-            // Modify card
-
-            auto total = reg.total;
-            auto max_supply = c->max_supply;
-            if (total > 0 && total != c->total) {
-                // Change total and max_supply
-                check(c->max_supply == 0, "Must be first time to change total");
-                check(c->creator == from, "Must be owner to change total");
-                max_supply = total;
+                table1.erase(c);
             } else {
-                total = c->total;
+                // Modify card
+
+                auto total = reg.total;
+                auto max_supply = c->max_supply;
+                if (total > 0 && total != c->total) {
+                    // Change total and max_supply
+                    check(c->max_supply == 0, "Must be first time to change total");
+                    check(c->creator == from, "Must be owner to change total");
+                    max_supply = total;
+                } else {
+                    total = c->total;
+                }
+
+                check(reg.sell <= total, "Total can not exceed sell");
+
+                auto sell = reg.sell;
+                if (reg.sell < 0) sell = c->sell; // Do not change
+
+                auto price = reg.price;
+                if (price < 0) price = c->price; // Do not change
+
+                if (reg.content.length() <= 12) {
+                    table1.modify( c, same_payer, [&]( auto& s ) {
+                        s.max_supply = max_supply;
+                        s.total = total;
+                        s.sell = sell;
+                        s.price = price;
+                        s.lastupdate = ct;
+                    });
+                } else {
+                    // If modify content, change ram payer to card owner.
+
+                    table1.modify( c, from, [&]( auto& s ) {
+                        s.max_supply = max_supply;
+                        s.total = total;
+                        s.sell = sell;
+                        s.price = price;
+                        s.lastupdate = ct;
+                        s.content = reg.content;
+                    });
+                }
             }
-
-            check(reg.sell <= total, "Total can not exceed sell");
-
-            auto sell = reg.sell;
-            if (reg.sell < 0) sell = c->sell; // Do not change
-
-            auto price = reg.price;
-            if (price < 0) price = c->price; // Do not change
-
-            if (reg.content.length() <= 12) {
-                table1.modify( c, same_payer, [&]( auto& s ) {
-                    s.max_supply = max_supply;
-                    s.total = total;
-                    s.sell = sell;
-                    s.price = price;
-                    s.lastupdate = ct;
-                });
-            } else {
-                // If modify content, change ram payer to card owner.
-
-                table1.modify( c, from, [&]( auto& s ) {
-                    s.max_supply = max_supply;
-                    s.total = total;
-                    s.sell = sell;
-                    s.price = price;
-                    s.lastupdate = ct;
-                    s.content = reg.content;
-                });
-            }
-          }
         }
     }
 
