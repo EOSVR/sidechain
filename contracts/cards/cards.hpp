@@ -23,13 +23,16 @@ struct cards {
 
     uint64_t second_key()const { return mark; }
 
+    uint64_t third_key()const { return lastupdate; }
+
     EOSLIB_SERIALIZE( cards, (id)(creator)(mark)(max_supply)(total)(sell)(price)(lastupdate)(content)(rampayed) );
 };
 
 typedef eosio::multi_index<"cardss"_n, cards,
         indexed_by< "bymark"_n,
-                const_mem_fun< cards, uint64_t, &cards::second_key> >
-
+                const_mem_fun< cards, uint64_t, &cards::second_key>>,
+        indexed_by< "byupdate"_n,
+                const_mem_fun< cards, uint64_t, &cards::third_key>>
 > cardTable;
 
 struct reg {
