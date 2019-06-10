@@ -52,7 +52,7 @@ struct impl {
             if (total > 0) max_supply = total;
 
             auto sell = reg.sell;
-            if (sell < total) sell = 0;
+            if (sell > total) sell = 0;
 
             auto price = reg.price;
             if (price < 0) price = 0;
@@ -155,13 +155,13 @@ struct impl {
 
         // Memo should like:
         //      +guest11111113,5    (Copy card 5)
-        //      &guest1111113,5     (Use card 5 as reference)
+        //      =guest1111113,5     (Use card 5 as reference)
         // It will buy card 5 of guest1111113
-        if (str[0] != '+' && str[0] != '&') {
+        if (str[0] != '+' && str[0] != '=') {
           return;
         }
 
-        bool isReference = (str[0] == '&');
+        bool isReference = (str[0] == '=');
 
         auto ind = str.find(",");
         if (ind < 0) {
