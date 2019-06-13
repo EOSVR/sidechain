@@ -52,7 +52,13 @@ struct impl {
             if (total > 0) max_supply = total;
 
             auto sell = reg.sell;
-            if (sell > total) sell = 0;
+            // When sell > 0 and total == 0, it is a card that can only sell by creator. (Max_Supply is minus)
+            if (total == 0 && sell > 0) {
+                max_supply = -sell;
+                total = sell;
+            } else if (sell > total) {
+                total = sell;
+            }
 
             auto price = reg.price;
             if (price < 0) price = 0;
@@ -182,6 +188,10 @@ struct impl {
         check (c != table1.end(), "Can not find this card");
 
         check (c->sell > 0, "No more card");
+
+        if (c->max_supply < 0) {
+            check(shopper == c->creator, "This card can only be sold by its creator.");
+        }
 
         int64_t existedId = getExisted(_self, from, c->creator, c->mark);
 
