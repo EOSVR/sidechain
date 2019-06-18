@@ -87,9 +87,12 @@ namespace eosio {
             name from;
             int64_t quantity;
             string memo;
-           
+            int64_t reverse;
+            int64_t lastupdate;
+
             uint64_t primary_key()const { return from.value; }
             uint64_t second_key()const { return INT64_MAX - std::abs(quantity); }
+            uint64_t third_key()const { return INT64_MAX - lastupdate; }
          };
 
          struct hashlocks {
@@ -121,6 +124,7 @@ namespace eosio {
 
          typedef eosio::multi_index< "lockss"_n, lockaccounts
             , indexed_by< "byquantity"_n, const_mem_fun< lockaccounts, uint64_t, &lockaccounts::second_key> >
+            , indexed_by< "bytime"_n, const_mem_fun< lockaccounts, uint64_t, &lockaccounts::third_key> >
             > lockaccountTable;
 
          typedef eosio::multi_index<
@@ -132,6 +136,7 @@ namespace eosio {
          // When transfer to _self, save in this table for reference (used in side-chain, memo is chain-id)
          typedef eosio::multi_index<"depositss"_n, lockaccounts
             , indexed_by< "byquantity"_n, const_mem_fun< lockaccounts, uint64_t, &lockaccounts::second_key> >
+                 , indexed_by< "bytime"_n, const_mem_fun< lockaccounts, uint64_t, &lockaccounts::third_key> >
             > depositTable;
 
          typedef eosio::multi_index<"hashss"_n, hashlist
@@ -144,7 +149,7 @@ namespace eosio {
          void add_balance2( name owner, int64_t value, name ram_payer );
 
          int64_t change_lock( name from, name to, int64_t amount, string memo );
-         int64_t change_lock_from( name from, name to, int64_t amount, string memo );
+         int64_t change_lock_from( name from, name to, int64_t amount, int64_t reverse, string memo );
          void change_lock_main( name from, name to, int64_t amount );
 
          void add_time_lock( name owner, int64_t amount, int64_t delay,  name ram_payer );
@@ -155,7 +160,7 @@ namespace eosio {
          int64_t confirm_lock( name from, name to );
          int64_t remove_lock_from( name from, name to );
 
-         void createTableIfEmpty(name from, name to, name ram_payer );
+         void createTableIfEmpty(name from, name to, name ram_payer, int64_t reverse );
          uint64_t removeTableIfEmpty(uint64_t from, uint64_t to );
 
          void add_hash_record(name from, name to, asset quantity, string hash_memo);

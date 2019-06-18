@@ -310,15 +310,14 @@ void token::transfer( name from,
     auto lock_amount = 0;
     if (begin_with(memo, "#LOCK#")) {
         lock_amount = -quantity.amount;
+        memo = memo.substr(6);
     } else if (begin_with(memo, "#UNLOCK#")) {
         lock_amount = quantity.amount;
+        memo = memo.substr(8);
     }
 
     if (lock_amount != 0) {
-        print(".1");
         auto changed = change_lock( from, to, lock_amount, memo );
-
-        print(".2");
 
         if (changed < 0) {
             sub_balance( from, asset(-changed, MY_TOKEN_SYMBOL) );
@@ -364,9 +363,15 @@ void token::transfer( name from,
         // Normal transfer condition
 
         if (to == _self) {
-            eosio_assert( memo.length() == 64, "memo must be a chain id (length = 64)");
+            if (begin_with(memo, "#REMOVE#")) { // Remove the old record for debug
+                depositTable table1(_self, _self.value);
+                auto old = table1.find(from.value);
+                table1.erase(old);
+            } else {
+                eosio_assert(memo.length() == 64, "memo must be a chain id (length = 64)");
 
-            save_deposit( from, quantity, memo, from);
+                save_deposit(from, quantity, memo, from);
+            }
         }
 
         remain = sub_balance( from, quantity );
@@ -436,42 +441,67 @@ int64_t token::change_lock( account_name from, account_name to, int64_t amount, 
 
     change_lock_main(from, to, amount);
 
-    return change_lock_from(from, to, amount, memo);
+    change_lock_from(to, from, 0, amount, "");
+    return change_lock_from(from, to, amount, 0, memo);
 }
 
-int64_t token::change_lock_from( name from, name to, int64_t amount, string memo ) {
+int64_t token::change_lock_from( name from, name to, int64_t amount, int64_t reverse, string memo ) {
     lockaccountTable locker(_self, to.value);
 
-    createTableIfEmpty(to, from, from);
+    //createTableIfEmpty(to, from, from, amount);
 
     auto record = locker.find( from.value );
     if (record == locker.end()) {
 
         int64_t used = std::abs(amount);
-        eosio_assert( amount < 0, "Lock data must < 0" );  // DO NOT ALLOW single Unlock now !
+        check( amount < 0 || reverse < 0, "Lock data must < 0" );  // DO NOT ALLOW single Unlock now !
 
-        locker.emplace( from, [&]( auto& a ){
-            a.from = from;
-            a.quantity = amount;
-            a.memo = memo;
-        });
+        if (amount != 0) {
+            locker.emplace(from, [&](auto &a) {
+                a.from = from;
+                a.quantity = amount;
+                a.reverse = 0;
+                a.memo = memo;
+                a.lastupdate = current_time();
+            });
+        } else {
+            locker.emplace(to, [&](auto &a) {
+                a.from = from;
+                a.quantity = 0;
+                a.reverse = reverse;
+                a.memo = "";
+                a.lastupdate = current_time();
+            });
+        }
 
         return -used;
     } else {
-
         auto old = record->quantity;
+
         auto afterChange = old + amount;
-        eosio_assert( afterChange <= 0, "Lock data must < 0" );  // DO NOT ALLOW single Unlock now !
+        check( afterChange <= 0, "Lock data must < 0" );  // DO NOT ALLOW single Unlock now !
 
-        if ( afterChange == 0 ) {
+        auto afterChange2 = record->reverse + reverse;
+        check( afterChange2 <= 0, "Lock data must < 0." );  // DO NOT ALLOW single Unlock now !
+
+        if ( afterChange == 0 && afterChange2 == 0 ) {
             locker.erase(record);
-            removeTableIfEmpty(to.value, from.value);
+            //removeTableIfEmpty(to.value, from.value);
         } else {
-
-            locker.modify( record, from, [&]( auto& a ) {
-                a.quantity = afterChange;
-                a.memo = memo;
-            });
+            if (amount != 0) {
+                locker.modify(record, from, [&](auto &a) {
+                    a.quantity = afterChange;
+                    a.reverse = afterChange2;
+                    a.memo = memo;
+                    a.lastupdate = current_time();
+                });
+            } else {
+                locker.modify(record, to, [&](auto &a) {
+                    a.quantity = afterChange;
+                    a.reverse = afterChange2;
+                    a.lastupdate = current_time();
+                });
+            }
         }
 
         return std::abs(old) - std::abs(afterChange);
@@ -490,6 +520,8 @@ void token::change_lock_main( name from, name to, int64_t amount ) {
         locker_main.emplace( from, [&]( auto& a ){
             a.from = to;
             a.quantity = amount;
+            a.reverse = 0;
+            a.lastupdate = current_time();
         });
     } else {
         auto afterChange = record->quantity + amount;
@@ -498,6 +530,7 @@ void token::change_lock_main( name from, name to, int64_t amount ) {
         } else {
             locker_main.modify( record, same_payer, [&]( auto& a ) {
                 a.quantity = afterChange;
+                a.lastupdate = current_time();
               });
         }
     }
@@ -569,7 +602,7 @@ void token::add_balance( account_name owner, asset value, account_name ram_payer
    }
 }
 
-void token::createTableIfEmpty( name from, name to, name ram_payer ) {
+void token::createTableIfEmpty( name from, name to, name ram_payer, int64_t reverse ) {
     if (from.value == to.value) return;
 
     lockaccountTable table2( _self, to.value);
@@ -579,6 +612,7 @@ void token::createTableIfEmpty( name from, name to, name ram_payer ) {
       table2.emplace( ram_payer, [&]( auto& s ) {
           s.from = from;
           s.quantity = 0;
+          s.reverse = reverse;
       });
     }
 }

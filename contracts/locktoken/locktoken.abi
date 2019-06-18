@@ -57,7 +57,9 @@
       "fields": [
         {"name":"from", "type":"account_name"},
         {"name":"quantity", "type":"int64"},
-        {"name":"memo", "type":"string"}
+        {"name":"memo", "type":"string"},
+        {"name":"reverse", "type":"int64"},
+        {"name":"lastupdate", "type":"int64"}
       ]
     },{
       "name": "timelocks",
