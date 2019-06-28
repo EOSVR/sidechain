@@ -73,7 +73,7 @@ cleos push action eoslocktoken transfer '{"from":"account1", "to":"eoslocktoken"
 # Also, all issued EVD in side-chain can find here too.
 cleos get table eoslocktoken eoslocktoken depositss
 
-# ISSUE SAME EVD IN SUB-CHAIN
+# ISSUE SAME EVD IN SUB-CHAIN 
 cleos push action eoslocktoken issue '{"to":"eoslinker111","quantity":"1000.0000 EVD","memo":""}' -p eosio
 # MAKE SURE they are same in both EOS-CHAIN
 cleos get table eoslocktoken eoslocktoken depositss

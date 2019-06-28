@@ -28,10 +28,19 @@
             {"name": "price", "type": "int64"},
             {"name": "content", "type": "string"}
             ]
+        },
+        {
+        "name": "withdraw",
+        "base": "",
+        "fields": [
+            {"name": "id", "type": "int64"},
+            {"name": "owner", "type": "name"}
+            ]
         }
         ],
     "actions": [
-        {"name": "reg","type": "reg", "ricardian_contract": ""}
+        {"name": "reg","type": "reg", "ricardian_contract": ""},
+        {"name": "withdraw","type": "withdraw", "ricardian_contract": ""}
         ],
     "tables": [{
         "name": "cardss",

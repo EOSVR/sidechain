@@ -85,7 +85,7 @@ int64_t AddDepositTable(name _self, int64_t amount, name account, bool isSymbol1
             return amount;
         } else {
             int64_t result = amount + t1->deposit;
-            table1.modify( t1, ram_payer, [&]( auto& a ) {
+            table1.modify( t1, same_payer, [&]( auto& a ) {
                 a.deposit = result;
             });
 
@@ -103,7 +103,7 @@ int64_t AddDepositTable(name _self, int64_t amount, name account, bool isSymbol1
             return amount;
         } else {
             int64_t result = amount + t2->deposit;
-            table2.modify( t2, ram_payer, [&]( auto& a ) {
+            table2.modify( t2, same_payer, [&]( auto& a ) {
                 a.deposit = result;
             });
 
