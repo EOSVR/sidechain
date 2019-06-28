@@ -73,6 +73,11 @@ cleos push action eoslocktoken transfer '{"from":"account1", "to":"eoslocktoken"
 # Also, all issued EVD in side-chain can find here too.
 cleos get table eoslocktoken eoslocktoken depositss
 
+# ISSUE SAME EVD IN SUB-CHAIN
+cleos push action eoslocktoken issue '{"to":"eoslinker111","quantity":"1000.0000 EVD","memo":""}' -p eosio
+# MAKE SURE they are same in both EOS-CHAIN
+cleos get table eoslocktoken eoslocktoken depositss
+
 ```
 
 Note: One account can only endorse for one side-chain. And must write correct chain id at the first time. It can not change. Transfer to eoslocktoken again will only increase the amount of EVD burned.
@@ -91,6 +96,8 @@ cleos push action eoslocktoken confirm '{"from":"account1", "to":"account2","key
 cleos push action eoslocktoken confirm '{"from":"account1", "to":"account2","key":""}' -p account3
 
 ```
+
+cleos push action eoslocktoken transfer '{"from":"account1", "to":"account2","quantity":"10.0000 EVD","memo":"#HASH#2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824,86400"}' -p account1
 
 
 ### Weight for limitation
