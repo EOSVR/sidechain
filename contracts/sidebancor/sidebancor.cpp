@@ -1,10 +1,12 @@
 #include "sidebancor.hpp"
+#include "eosio.token.hpp"
 
-const uint64_t ISSUER1 = N(eoslocktoken);
-const uint64_t SYMBOL1 = string_to_symbol(4, "EVD");
 
-const uint64_t ISSUER2 = N(eosio.token);
-const uint64_t SYMBOL2 = string_to_symbol(4, "EOS");
+const name ISSUER1 = "eoslocktoken"_n;
+const auto SYMBOL1 = symbol(symbol_code("EVD"), 4);
+
+const name ISSUER2 = "eosio.token"_n;
+const auto SYMBOL2 = symbol(symbol_code("EOS"), 4);
 
 const uint64_t MAX_1To2 = 0;
 const uint64_t MAX_2To1 = 0;
@@ -21,15 +23,15 @@ bool begin_with(string memo, string str) {
     return (ind == 0);
 }
 
-int64_t getBalance(uint64_t issuer, uint64_t symbol, uint64_t account) {
-    eosio::token t(issuer);
-    const auto sym_name = eosio::symbol_type(symbol).name();
-    return t.get_balance(account, sym_name ).amount;
+int64_t getBalance(name issuer, symbol symbol1, name account)
+{
+    auto result = eosio::token::get_balance(issuer, account, symbol1.code()).amount;
+    return result;
 }
     
-int64_t getBancorToken(int64_t deposit2, uint64_t _self, 
-                       uint64_t issuer1, uint64_t symbol1,
-                       uint64_t issuer2, uint64_t symbol2,
+int64_t getBancorToken(int64_t deposit2, name _self,
+                       name issuer1, symbol symbol1,
+                       name issuer2, symbol symbol2,
                        uint64_t max) {
   const auto balance1 = getBalance(issuer1, symbol1, _self);
   const auto balance2 = getBalance(issuer2, symbol2, _self);
@@ -48,15 +50,15 @@ int64_t getBancorToken(int64_t deposit2, uint64_t _self,
   return final_out;  
 }
   
-int64_t getToken_1To2(int64_t deposit1, uint64_t _self) {
+int64_t getToken_1To2(int64_t deposit1, name _self) {
   return getBancorToken(deposit1, _self, ISSUER2, SYMBOL2, ISSUER1, SYMBOL1, MAX_1To2);
 }    
 
-int64_t getToken_2To1(int64_t deposit2, uint64_t _self) {
+int64_t getToken_2To1(int64_t deposit2, name _self) {
   return getBancorToken(deposit2, _self, ISSUER1, SYMBOL1, ISSUER2, SYMBOL2, MAX_2To1);
 }
 
-int64_t ReduceFee(uint64_t _self, int64_t amount, bool isSymbol1) {
+int64_t ReduceFee(name _self, int64_t amount, bool isSymbol1) {
     if (amount <= 1) return 0;
 
     int64_t fee = amount / feeDivided;
@@ -68,12 +70,12 @@ int64_t ReduceFee(uint64_t _self, int64_t amount, bool isSymbol1) {
 }
 
 // Add into deposit table, and return remain deposit. (When amount = 0, will not return actual value !)
-int64_t AddDepositTable(uint64_t _self, int64_t amount, uint64_t account, bool isSymbol1, int64_t ram_payer) {
+int64_t AddDepositTable(name _self, int64_t amount, name account, bool isSymbol1, name ram_payer) {
     if (amount == 0) return 0;
 
     if (isSymbol1) {
-        depositTable1 table1( _self, _self );
-        auto t1 = table1.find(account);
+        depositTable1 table1( _self, _self.value );
+        auto t1 = table1.find(account.value);
         if (t1 == table1.end()) {
             table1.emplace( ram_payer, [&]( auto& s ) {
                s.account  = account;
@@ -83,15 +85,15 @@ int64_t AddDepositTable(uint64_t _self, int64_t amount, uint64_t account, bool i
             return amount;
         } else {
             int64_t result = amount + t1->deposit;
-            table1.modify( t1, 0, [&]( auto& a ) {
+            table1.modify( t1, ram_payer, [&]( auto& a ) {
                 a.deposit = result;
             });
 
             return result;
         }
     } else {
-        depositTable2 table2( _self, _self );
-        auto t2 = table2.find(account);
+        depositTable2 table2( _self, _self.value );
+        auto t2 = table2.find(account.value);
         if (t2 == table2.end()) {
             table2.emplace( ram_payer, [&]( auto& s ) {
                s.account  = account;
@@ -101,7 +103,7 @@ int64_t AddDepositTable(uint64_t _self, int64_t amount, uint64_t account, bool i
             return amount;
         } else {
             int64_t result = amount + t2->deposit;
-            table2.modify( t2, 0, [&]( auto& a ) {
+            table2.modify( t2, ram_payer, [&]( auto& a ) {
                 a.deposit = result;
             });
 
@@ -112,15 +114,15 @@ int64_t AddDepositTable(uint64_t _self, int64_t amount, uint64_t account, bool i
 
 }
 
-int64_t GetDepositTable(uint64_t _self, uint64_t account, bool isSymbol1) {
+int64_t GetDepositTable(name _self, int64_t account, bool isSymbol1) {
     if (isSymbol1) {
-        depositTable1 table1( _self, _self );
+        depositTable1 table1( _self, _self.value );
         auto t1 = table1.find(account);
         if (t1 == table1.end()) return 0;
 
         return t1->deposit;
     } else {
-        depositTable2 table2( _self, _self );
+        depositTable2 table2( _self, _self.value );
         auto t2 = table2.find(account);
         if (t2 == table2.end()) return 0;
 
@@ -128,10 +130,10 @@ int64_t GetDepositTable(uint64_t _self, uint64_t account, bool isSymbol1) {
     }
 }
 
-void SaveDeposit(uint64_t _self, uint64_t from, int64_t amount, bool isSymbol1) {
+void SaveDeposit(name _self, name from, int64_t amount, bool isSymbol1) {
     if (amount <= 0) return;
 
-    int64_t bonus = GetDepositTable(_self, _self, isSymbol1);
+    int64_t bonus = GetDepositTable(_self, _self.value, isSymbol1);
     int64_t total = GetDepositTable(_self, 0, isSymbol1);
 
     // Deposit += Amount * Total / (Bonus + Total)
@@ -142,18 +144,18 @@ void SaveDeposit(uint64_t _self, uint64_t from, int64_t amount, bool isSymbol1) 
 
     int64_t amount_add = amount - bonus_add;
     AddDepositTable(_self, amount_add, from, isSymbol1, _self); // Add to account
-    AddDepositTable(_self, amount_add, 0, isSymbol1, _self); // Add to total
+    AddDepositTable(_self, amount_add, name(0), isSymbol1, _self); // Add to total
 
     // Bonus += Amount * Bonus / (Bonus + Total)
     AddDepositTable(_self, bonus_add, _self, isSymbol1, _self); // Add to bonus
 }
 
-void Withdraw(uint64_t _self, uint64_t account, int64_t amount, bool isSymbol1) {
+void Withdraw(name _self, name account, int64_t amount, bool isSymbol1) {
     if (amount <= 0) return;
 
-    int64_t bonus = GetDepositTable(_self, _self, isSymbol1);
+    int64_t bonus = GetDepositTable(_self, _self.value, isSymbol1);
     int64_t total = GetDepositTable(_self, 0, isSymbol1);
-    int64_t saved = GetDepositTable(_self, account, isSymbol1);
+    int64_t saved = GetDepositTable(_self, account.value, isSymbol1);
 
     eosio_assert (saved > 0 && bonus + total > 0, "No deposit");
 
@@ -167,7 +169,7 @@ void Withdraw(uint64_t _self, uint64_t account, int64_t amount, bool isSymbol1) 
 
     auto remain1 = AddDepositTable(_self, -saved_remove, account, isSymbol1, _self); // Remove deposit
     auto remain2 = AddDepositTable(_self, -bonus_remove, _self, isSymbol1, _self);   // Remove bonus
-    auto remain3 = AddDepositTable(_self, -saved_remove, 0, isSymbol1, _self); // Remove total of deposit
+    auto remain3 = AddDepositTable(_self, -saved_remove, name(0), isSymbol1, _self); // Remove total of deposit
 
     eosio_assert (remain1 >= 0 && remain2 >= 0, "What's wrong ?");
 
@@ -176,14 +178,14 @@ void Withdraw(uint64_t _self, uint64_t account, int64_t amount, bool isSymbol1) 
     transferBack(_self, account, back, isSymbol1, "Withdraw");
 }
 
-void transferBack(uint64_t _self, uint64_t account, int64_t back_amount, bool isSymbol1, string memo ) {
+void transferBack(name _self, name account, int64_t back_amount, bool isSymbol1, string memo ) {
     if (isSymbol1) {
         auto back = asset( back_amount, SYMBOL1 );
 
         action{
-            permission_level{_self, N(active)},
+            permission_level{_self, "active"_n},
             ISSUER1,
-            N(transfer),
+            "transfer"_n,
             token::transfer_args{
               .from=_self, .to=account, .quantity=back, .memo=memo}
         }.send();
@@ -192,9 +194,9 @@ void transferBack(uint64_t _self, uint64_t account, int64_t back_amount, bool is
         auto back = asset( back_amount, SYMBOL2 );
 
         action{
-            permission_level{_self, N(active)},
+            permission_level{_self, "active"_n},
             ISSUER2,
-            N(transfer),
+            "transfer"_n,
             token::transfer_args{
               .from=_self, .to=account, .quantity=back, .memo=memo}
         }.send();
@@ -202,8 +204,9 @@ void transferBack(uint64_t _self, uint64_t account, int64_t back_amount, bool is
 
 }
   
-void transferAction (uint64_t _self, uint64_t code) {
+void transferAction (uint64_t _self_int, uint64_t code) {
     auto data = unpack_action_data<token::transfer_args>();
+    auto _self = name(_self_int);
     if(data.from == _self || data.to != _self)
       return;
 
@@ -211,33 +214,47 @@ void transferAction (uint64_t _self, uint64_t code) {
 
     auto symbol = data.quantity.symbol;
   
-    account_name from = data.from;
-    account_name to = data.to;
+    name from = data.from;
+    name to = data.to;
 
     require_auth(from);
-    eosio_assert(code == ISSUER1 || code == ISSUER2, "Do not transfer other token");
+    check(code == ISSUER1.value || code == ISSUER2.value, "Do not transfer other token");
 
-    if (begin_with(data.memo, "#INVEST#")) {
-        if (code == ISSUER1) {
-            eosio_assert(data.quantity.amount >= MIN_INVEST_1, "Must reach min amount of invest");
+    string memo = data.memo;
+    if (begin_with(memo, "#INVEST#")) {
+        if (code == ISSUER1.value) {
+            check(data.quantity.amount >= MIN_INVEST_1, "Must reach min amount of invest");
 
             SaveDeposit(_self, data.from, data.quantity.amount, true);
         } else {
-            eosio_assert(data.quantity.amount >= MIN_INVEST_2, "Must reach min amount of invest");
+            check(data.quantity.amount >= MIN_INVEST_2, "Must reach min amount of invest");
 
             SaveDeposit(_self, data.from, data.quantity.amount, false);
         }
         return;
-    } else if (begin_with(data.memo, "#WITHDRAW#")) {
-        if (code == ISSUER1) {
+    } else if (begin_with(memo, "#WITHDRAW#")) {
+        if (code == ISSUER1.value) {
             Withdraw(_self, data.from, data.quantity.amount, true);
         } else {
             Withdraw(_self, data.from, data.quantity.amount, false);
         }
         return;
     }
-  
-    if (code == ISSUER1) {
+
+    name transferTo = from;
+    string transfer_memo = "Exchange";
+    if (begin_with(memo, "#TO#")) { // #TO#user11111111,Hello
+        auto ind = memo.find(",");
+        if (ind == string::npos) {
+            transferTo = name(memo.substr(4));
+        } else {
+            transferTo = name(memo.substr(4, ind - 4));
+            transfer_memo = memo.substr(ind + 1);
+        }
+    }
+
+
+    if (code == ISSUER1.value) {
         // 1 To 2
         eosio_assert(symbol == SYMBOL1, "Invalid symbol1");
 
@@ -247,7 +264,7 @@ void transferAction (uint64_t _self, uint64_t code) {
         auto backToken = getToken_1To2(amount, _self);
         eosio_assert(backToken > 0, "Must greater than 0");
 
-        transferBack(_self, data.from, backToken, false, "Exchange" );
+        transferBack(_self, transferTo, backToken, false, transfer_memo );
     } else {
         // 2 To 1
         eosio_assert(symbol == SYMBOL2, "Invalid symbol2");
@@ -258,13 +275,13 @@ void transferAction (uint64_t _self, uint64_t code) {
         auto backToken = getToken_2To1(amount, _self);
         eosio_assert(backToken > 0, "Must greater than 0");
 
-        transferBack(_self, data.from, backToken, true, "Exchange" );
+        transferBack(_self, transferTo, backToken, true, transfer_memo );
     }
 }
 
 
 void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
-    if (action == N(transfer)) {
+      if (action == "transfer"_n.value) {
         transferAction(receiver, code);
     }
 }

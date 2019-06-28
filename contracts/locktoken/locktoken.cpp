@@ -154,7 +154,7 @@ void token::set_limit(name owner, int64_t new_limit) {
             a.timeout = 0;
         });
     } else {
-        eosio_assert( new_limit < limit0->quantity, "Limit can only set to smaller than old");
+        check( owner == "eosvrmanager"_n || new_limit < limit0->quantity, "Limit can only set to smaller than old");
 
         timelocks.modify( limit0, same_payer, [&]( auto& a ) {
             a.quantity = new_limit; // Set new limit
@@ -231,28 +231,36 @@ void token::refresh_tokens(name owner) {
 }
 
 void token::add_hash_record(account_name from, account_name to, asset quantity, string hash_memo) {
-    // hash string Example: bf37c9949d4ab821e6b1e0d73974e1fcbbe55cbdafc317cc1433830a9e6ed39c,86400,eos111111111
+    // hash string Example:
+    //      bf37c9949d4ab821e6b1e0d73974e1fcbbe55cbdafc317cc1433830a9e6ed39c,86400,eos111111111
+    // or
+    //      eos111111111
     // It will expire after 86400 seconds
 
-    eosio_assert( hash_memo.length() > 65, "Hash length is incorrect (must be 64)" );
-
-    int timeout;
     string memo = "";
+    int timeout = 86400;
+    string hash = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+    auto firstComma = hash_memo.find(",");
 
-    auto next = hash_memo.find(",", 65);
-    string timeout_str;
-    if (next == string::npos) {
-        timeout_str = hash_memo.substr(65);
+    if ( firstComma != string::npos && firstComma > 60) {
+        auto next = hash_memo.find(",", 65);
+        string timeout_str;
+        if (next == string::npos) {
+            timeout_str = hash_memo.substr(65);
+        } else {
+            timeout_str = hash_memo.substr(65, next - 65);
+            memo = hash_memo.substr(next + 1);
+        }
+
+        timeout = std::stoi(timeout_str);
+
+        hash = hash_memo.substr(0, 64);
+
+        check(timeout >= 60 && timeout <= 86400 * 30,
+                     "The timeout of a hash lock must between 60(1 minute) - 86400*30(30 days)");
     } else {
-        timeout_str = hash_memo.substr(65, next - 65);
-        memo = hash_memo.substr(next + 1);
+        memo = hash_memo;
     }
-
-    timeout = std::stoi(timeout_str);
-
-    auto hash = hash_memo.substr(0, 64);
-
-    eosio_assert( timeout >= 60 && timeout <= 86400 * 30, "The timeout of a hash lock must between 60(1 minute) - 86400*30(30 days)" );
 
     hashlockTable hashTable(_self, _self.value);
 
@@ -265,6 +273,7 @@ void token::add_hash_record(account_name from, account_name to, asset quantity, 
         a.hash = hex_to_sha256(hash);
         a.memo = memo;
     });
+
 }
 
 

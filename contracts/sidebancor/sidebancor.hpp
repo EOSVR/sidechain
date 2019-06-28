@@ -1,10 +1,12 @@
+#pragma once
 
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/action.hpp>
 #include <eosiolib/multi_index.hpp>
-#include "eosio.token.hpp"
 #include <string>
+#include <eosiolib/asset.hpp>
 
+#define account_name name
 using namespace eosio;
 
 using std::string;
@@ -16,11 +18,11 @@ struct deposits {
   account_name account;
   int64_t deposit;
 
-  auto primary_key() const { return account; }
+  uint64_t primary_key() const { return account.value; }
 
   EOSLIB_SERIALIZE( deposits, (account)(deposit))
 };
 
-typedef eosio::multi_index<N(depositss1), deposits> depositTable1;
+typedef eosio::multi_index<"depositss1"_n, deposits> depositTable1;
 
-typedef eosio::multi_index<N(depositss2), deposits> depositTable2;
+typedef eosio::multi_index<"depositss2"_n, deposits> depositTable2; 
