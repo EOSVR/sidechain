@@ -10,24 +10,30 @@
 // content of current ONLY (Copy Mode) (Test)
 
 // 当使用 reg '{"from":"guest1111111", "content":"XXXXX", "id":1558446691000000, "total":1000, "sell":-50, "price":10000}' -p guest1111111 时，
-// 一张矿山卡将建立（sell < 0），这时 creator 账户中：
-//      rampayed < 0, 表示矿量，记录的是 eoscardcards 收到的所有EVD的数量（-XXX），初始-1。
+// 一张宝藏卡将建立（sell < 0），这时 creator 账户中：
+//      rampayed < 0, 表示宝藏量，记录的是 eoscardcards 收到的所有EVD的数量（-XXX），初始-1。
 //      max_supply 表示的是总共卖出的数量。
 //      total 表示每张每天的分红数量。（比如：1000，表示每张每天可以分 0.1 EVD）。
-//      sell 表示矿山大概持续时间（天）
+//      sell 表示矿山维持时间（天）
 //
-// 挖矿(回收分红) = Min(total, -rampayed / max_supply / sell) * days ( days = [1, price / 10,0000]，price 为 0 的话无上限 )
+// 挖宝(回收分红) = Min(total, -rampayed / max_supply / sell) * days ( days = [1, price / 10,0000]，price 为 0 的话无上限 )
 // 执行命令为： withdraw '{"id": "123184920012", "owner": "user111111111"}'
+
+// 摧毁卖出的宝藏卡 (买了宝藏卡的人用), 摧毁不会返 token
+// 如果是宝藏卡的 creator 使用，需要
+// removemine '{"id": "123184920012", "owner": "user111111111"}'
+
 //
 // Service 输入token的命令为: transfer {..., "to": "eoscardcards", ... , "memo": "^guest1111111,123184920012"}
 // 表示直接加 rampayed 中的量。
 //
 // 限制：
-// 1, 卖出了卡后，矿山卡无法被销毁， (即，max_supply > 0 时，total < 0 不起作用)
+// 1, 卖出了10张卡后，宝藏卡无法被销毁 (即，max_supply > 10 时，removemine 不起作用。10张之前表示测试)
 // 2, creator无法买自己
 // 3, 之后的 reg 无法修改 total 和 sell (防止创建者乱改)，只能修改 price
-// 4, price 影响挖矿的允许间隔。 间隔为[1, price / 10,0000]day，price 为 0 的话无上限;
-// 5, 如果不想加人的话，price 改为 0，将永久封闭加入(之前卖出的还可以流通)。
+// 4, price 影响挖矿的允许间隔。 间隔为[1, price / 10,0000] day （最大30days）
+// 5, 如果不想加人的话，price 改为一个非常大的数即可(之前卖出的还可以流通)。
+// 6, price 只许增，不许减
 
 const uint64_t ISSUER_ACCOUNT = "eoslocktoken"_n.value;
 const auto TOKEN_SYMBOL = symbol(symbol_code("EVD"), 4);
@@ -47,7 +53,113 @@ const uint64_t ms_per_1hour = 60 * 60 * 1000;
 
 
 struct impl {
+    void removeAction(uint64_t _self, const withdraw& withdraw) {
+        name owner = withdraw.owner;
+        require_auth( owner );
+        
+        int64_t id = withdraw.id;
+        
+        cardTable table1( name(_self), owner.value);
+        
+        auto c = table1.find(id);
+        check (c != table1.end(), "No card");
+        
+        name creator = c->creator;
+        
+        if (owner == creator) {
+            check (c->rampayed >= 0, "Use removemine to remove a mine card.");
+            
+            check(c->max_supply == c->total, "Can not remove a card that sold to other");
+            
+            if (c->rampayed > 0) {
+                // Send back ram payed
+                action{
+                    permission_level{name(_self), "active"_n},
+                    name(ISSUER_ACCOUNT),
+                    "transfer"_n,
+                    currency::transfer{
+                        .from=_self, .to=owner.value, .quantity=asset(c->rampayed, TOKEN_SYMBOL), .memo="Send back ram payed"}
+                }.send();
+            }
+            
+            table1.erase(c);
+        } else {
+            int64_t mark = c->mark;
+            int64_t rawId = mark ^ creator.value;
+            
+            cardTable table2( name(_self), creator.value);
+            auto origin = table2.find(rawId);
+            
+            if (origin != table2.end()) {
+                int64_t ct = current_time() / 1000;
+                int64_t new_max_supply = origin->max_supply - c->total;
+                check (new_max_supply >= 0, "Invalid max supply");
 
+                table2.modify( origin, same_payer, [&]( auto& s ) {
+                    s.max_supply = new_max_supply;  // Remove max_supply
+                    s.lastupdate = ct;
+                });
+            }
+            
+            table1.erase(c);
+        }
+    }
+    
+    
+    void removemineAction(uint64_t _self, const withdraw& withdraw) {
+        name owner = withdraw.owner;
+        require_auth( owner );
+        
+        int64_t id = withdraw.id;
+        
+        cardTable table1( name(_self), owner.value);
+        
+        auto c = table1.find(id);
+        check (c != table1.end(), "No card");
+        
+        name creator = c->creator;
+        
+        if (owner == creator) {
+            check (c->max_supply <= 10, "Mine card can not destroy when other have more than 10");
+    
+            // Send back all remain token to creator.
+            int64_t payback = -c->rampayed - 1;
+            if (payback > 0) {
+                action{
+                    permission_level{name(_self), "active"_n},
+                    name(ISSUER_ACCOUNT),
+                    "transfer"_n,
+                    currency::transfer{
+                        .from=_self, .to=owner.value, .quantity=asset(payback, TOKEN_SYMBOL), .memo="Mine removed"}
+                }.send();
+            }
+            
+            table1.erase(c);
+        } else {
+            if (c->total > 0) {
+                int64_t mark = c->mark;
+                int64_t rawId = mark ^ creator.value;
+                
+                cardTable table2( name(_self), creator.value);
+                auto origin = table2.find(rawId);
+                check (origin != table2.end(), "No origin card");
+                
+                int64_t ct = current_time() / 1000;
+                int64_t new_max_supply = origin->max_supply - c->total;
+                check (new_max_supply >= 0, "Invalid max supply");
+                
+                table2.modify( origin, same_payer, [&]( auto& s ) {
+                    s.max_supply = new_max_supply;
+                    s.lastupdate = ct;
+                });
+            }
+
+            table1.erase(c);
+        }
+        
+
+        
+    }
 
     void withdrawAction(uint64_t _self, const withdraw& withdraw) {
         name owner = withdraw.owner;
@@ -76,8 +188,8 @@ struct impl {
         check (origin != table2.end(), "No origin card");
 
         int64_t max_day = origin->price / 100000;
-        if (origin->price == 0) {
-            max_day = 365; // 1 year
+        if (origin->price == 0 || max_day > 365) {
+            max_day = 365; // At most 1 year
         }
 
         if (max_day < 1) max_day = 1;
@@ -183,75 +295,57 @@ struct impl {
             });
         } else {
             // ===== Change old Card =====
-            if (reg.total < 0) {
-                // Remove card
+            check(reg.total >= 0, "Total must be positive"); // Remove card change to action: remove
+            
+            // Modify card
+            auto total = reg.total;
+            auto max_supply = c->max_supply;
+            auto sell = reg.sell;
 
-                check(c->max_supply == c->total, "Can not remove a card that sold to other");
+            auto price = reg.price;
+            if (price < 0) price = c->price; // Do not change
 
-                if (c->rampayed < 0)
-                    check(c->max_supply == 0, "Can not remove a mine card that sold to other");
+            if (c->rampayed < 0) {
+                // mine card, can not change total or sell
+                total = c->total;
+                sell = c->sell;
 
-                if (c->rampayed > 0) {
-                  // Send back ram payed
-                  action{
-                          permission_level{name(_self), "active"_n},
-                          name(ISSUER_ACCOUNT),
-                          "transfer"_n,
-                          currency::transfer{
-                                  .from=_self, .to=from.value, .quantity=asset(c->rampayed, TOKEN_SYMBOL), .memo="Send back ram payed"}
-                  }.send();
-                }
-
-                table1.erase(c);
+                // price must be bigger than old
+                check(price > c->price, "Mine price can only change to bigger");
             } else {
-                // Modify card
-
-                auto total = reg.total;
-                auto max_supply = c->max_supply;
-                auto sell = reg.sell;
-
-                if (c->rampayed < 0) {
-                    // mine card, can not change total or sell
+                if (total > 0 && total != c->total) {
+                    // Change total and max_supply
+                    check(c->max_supply == 0, "Must be first time to change total");
+                    check(c->creator == from, "Must be owner to change total");
+                    max_supply = total;
+                }
+                else {
                     total = c->total;
-                    sell = c->sell;
-                } else {
-                    if (total > 0 && total != c->total) {
-                        // Change total and max_supply
-                        check(c->max_supply == 0, "Must be first time to change total");
-                        check(c->creator == from, "Must be owner to change total");
-                        max_supply = total;
-                    }
-                    else {
-                        total = c->total;
-                    }
-
-                    check(reg.sell <= total, "Total can not exceed sell");
-                    if (reg.sell < 0) sell = c->sell; // Do not change
                 }
 
-                auto price = reg.price;
-                if (price < 0) price = c->price; // Do not change
+                check(reg.sell <= total, "Total can not exceed sell");
+                if (reg.sell < 0) sell = c->sell; // Do not change
+            }
 
-                if (reg.content.length() <= 12) {
-                    table1.modify( c, same_payer, [&]( auto& s ) {
-                        s.max_supply = max_supply;
-                        s.total = total;
-                        s.sell = sell;
-                        s.price = price;
-                        s.lastupdate = ct;
-                    });
-                } else {
-                    // If modify content, change ram payer to card owner.
+            if (reg.content.length() <= 12) {
+                table1.modify( c, same_payer, [&]( auto& s ) {
+                    s.max_supply = max_supply;
+                    s.total = total;
+                    s.sell = sell;
+                    s.price = price;
+                    s.lastupdate = ct;
+                });
+            } else {
+                // If modify content, change ram payer to card owner.
 
-                    table1.modify( c, from, [&]( auto& s ) {
-                        s.max_supply = max_supply;
-                        s.total = total;
-                        s.sell = sell;
-                        s.price = price;
-                        s.lastupdate = ct;
-                        s.content = reg.content;
-                    });
-                }
+                table1.modify( c, from, [&]( auto& s ) {
+                    s.max_supply = max_supply;
+                    s.total = total;
+                    s.sell = sell;
+                    s.price = price;
+                    s.lastupdate = ct;
+                    s.content = reg.content;
+                });
             }
         }
     }
@@ -475,6 +569,13 @@ struct impl {
       else if (action == "withdraw"_n.value) {
           withdrawAction(receiver, eosio::unpack_action_data<withdraw>());
       }
+      else if (action == "remove"_n.value) {
+          removeAction(receiver, eosio::unpack_action_data<withdraw>());
+      }
+      else if (action == "removemine"_n.value) {
+          removemineAction(receiver, eosio::unpack_action_data<withdraw>());
+      }
+
     }
 
 

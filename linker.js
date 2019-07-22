@@ -13,6 +13,8 @@ const dest = conf.dest;
 
 const time_buffer = 1800; // 0.5 hour buffer for one operation (transaction)
 const check_interval = 15000; // Check status every 15 seconds
+let exit_times = 240; // Exit every 1 hour
+const force_exit_interval = 4800000; // Force exit after 1 hour 20 minutes.
 
 const retry_create_pair = pair.retry_create_pair;
 
@@ -81,7 +83,7 @@ const CrossChainGetHashKey = function (src) {
 
 const doTransferTo = function (dest, linker, data) {
   return utils.PushTransaction(dest, 'eoslocktoken', 'transfer', linker, data).then(function () {
-    console.log(dest.httpEndpoint + ' linked transfer: ' + data.from + "->" + data.to + ' created.');
+    console.log(new Date() + ':' + dest.httpEndpoint + ' linked transfer: ' + data.from + "->" + data.to + ' with ' + data.quantity + ' created.');
   });
 };
 
@@ -91,7 +93,7 @@ const doTransferBack = function (src, row, reason) {
     console.dir(row);
     throw new Error('Invalid transfer back!');
   }
-  console.log(src.httpEndpoint + ' transfer ' + row.from + '->' + row.to + ' can not link because: ' + reason);
+  console.log(new Date() + ':' + src.httpEndpoint + ' transfer ' + row.from + '->' + row.to + ' can not link because: ' + reason);
   return;   // Can not transfer back because it is same Index in contract. (from^to == to^from)
   
   let quantity = (row.quantity / 10000).toFixed(4) + ' EVD';
@@ -106,7 +108,7 @@ const doTransferBack = function (src, row, reason) {
   let data = { from: row.to, to: row.from, quantity: quantity, memo: memo };
   
   return utils.PushTransaction(src, 'eoslocktoken', 'transfer', linker, data).then(function () {
-   console.log(src.httpEndpoint + ' transfer ' + row.from + '->' + row.to + ' can not link because: ' + reason);
+   console.log(new Date() + ':' + src.httpEndpoint + ' transfer ' + row.from + '->' + row.to + ' can not link because: ' + reason);
   });
 };
 
@@ -199,7 +201,7 @@ const CrossChainConfirm = function (src, dest, linker, data1, index='2') {
     
               list.push(utils.PushTransaction(dest, 'eoslocktoken', 'confirm', linker, data).then(function () {
                 data1.cancelFromData(onerow);
-                console.log(dest.httpEndpoint + ' confirmed: ' + data);
+                console.log(new Date() + ':' + dest.httpEndpoint + ' confirmed: ' + data);
               }));
             } else if (onerow.hash) {
               
@@ -252,9 +254,20 @@ const DoCrossChain = function () {
     }).finally(() => {
         pair.SaveData('src.data', src_data);
         pair.SaveData('dest.data', dest_data);
-        setTimeout(DoCrossChain, check_interval); // Run it again
+
+	exit_times--;
+	if (exit_times <= 0) {
+		console.log("Check 1 hours and exit");
+        	process.exit();
+	} else
+        	setTimeout(DoCrossChain, check_interval); // Run it again
     });
 };
+
+setTimeout(()=> {
+	console.log("Force exit after 80 minutes!!!");
+	process.exit();
+}, force_exit_interval);
 
 src_data = pair.LoadData('src.data', linker);
 dest_data = pair.LoadData('dest.data', linker);

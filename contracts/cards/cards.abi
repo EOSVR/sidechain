@@ -40,7 +40,9 @@
         ],
     "actions": [
         {"name": "reg","type": "reg", "ricardian_contract": ""},
-        {"name": "withdraw","type": "withdraw", "ricardian_contract": ""}
+        {"name": "withdraw","type": "withdraw", "ricardian_contract": ""},
+        {"name": "remove","type": "withdraw", "ricardian_contract": ""},
+        {"name": "removemine","type": "withdraw", "ricardian_contract": ""}
         ],
     "tables": [{
         "name": "cardss",
