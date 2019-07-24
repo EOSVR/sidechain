@@ -89,6 +89,13 @@
         {"name":"hash", "type":"checksum256"},
         {"name":"key", "type":"string"}
       ]
+    },{
+      "name": "news",
+      "base": "",
+      "fields": [
+        {"name":"to", "type":"name"},
+        {"name":"msg", "type":"string"},
+      ]
     }
   ],
   "actions": [{
@@ -106,6 +113,10 @@
     }, {
       "name": "confirm",
       "type": "confirm",
+      "ricardian_contract": ""
+    }, {
+      "name": "news",
+      "type": "news",
       "ricardian_contract": ""
     }
 
