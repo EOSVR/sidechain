@@ -159,7 +159,8 @@ void Withdraw(name _self, name account, int64_t amount, bool isSymbol1) {
 
     eosio_assert (saved > 0 && bonus + total > 0, "No deposit");
 
-    int64_t saved_remove = amount * total / (bonus + total);
+    double percent = 10000 * total / (bonus + total); // Fix overflow of (amount * total)
+    int64_t saved_remove = amount * percent / 10000;
     int64_t bonus_remove = amount - saved_remove;
 
     if (saved_remove > saved) { // No enough saved, remove all
@@ -171,7 +172,8 @@ void Withdraw(name _self, name account, int64_t amount, bool isSymbol1) {
     auto remain2 = AddDepositTable(_self, -bonus_remove, _self, isSymbol1, _self);   // Remove bonus
     auto remain3 = AddDepositTable(_self, -saved_remove, name(0), isSymbol1, _self); // Remove total of deposit
 
-    eosio_assert (remain1 >= 0 && remain2 >= 0, "What's wrong ?");
+    eosio_assert (remain1 >= 0, "What's wrong deposit ?");
+    eosio_assert (remain2 >= 0, "What's wrong bonus ?");
 
     int64_t back = amount + saved_remove + bonus_remove;
 
