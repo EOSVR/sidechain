@@ -142,7 +142,7 @@ void token::issue( name to, asset quantity, string memo )
 }
 
 void token::set_limit(name owner, int64_t new_limit) {
-    eosio_assert( owner == "eosvrmanager"_n || (new_limit > 0 && new_limit <= max_limit), "Limit must be 1-50" );
+    check((new_limit > 0 && new_limit <= max_limit), "Limit must be 1-50" );
 
     timelockTable timelocks(_self, owner.value);
     auto limit0 = timelocks.find(0);
@@ -154,7 +154,7 @@ void token::set_limit(name owner, int64_t new_limit) {
             a.timeout = 0;
         });
     } else {
-        check( owner == "eosvrmanager"_n || new_limit < limit0->quantity, "Limit can only set to smaller than old");
+        check( new_limit < limit0->quantity, "Limit can only set to smaller than old");
 
         timelocks.modify( limit0, same_payer, [&]( auto& a ) {
             a.quantity = new_limit; // Set new limit
